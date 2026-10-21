@@ -1,151 +1,116 @@
-# boardgame.org — Emacs Lisp Package Implementation Plan
+# boardgame.org — Revised Implementation Plan
 
-A modular, file-oriented Emacs Lisp package in `src/` providing an interactive text-based tabletop environment in Emacs, where Org-mode documents serve as editable, persistent representations of game objects, stacks, containers, and felt board state.
+A modular Emacs Lisp package in `src.el/` implementing the tabletop specification from `boardgame-org.md`, accompanied by a comprehensive `readme.org` and an Emacs Doom-One styled TypeScript documentation reader in `src/` displaying `readme.org` on port 3000.
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> Based on your confirmed preferences from Phase 1:
-> - **Package Modular Structure**: Configured as a multi-file modular package inside `src/` adhering strictly to Section 7 modularity guidelines (separate files for core data, objects, stacks, containers, boards, hands, rendering, and commands).
-> - **Menu Interface**: Standard native Emacs keymap without external Hydra dependencies (`boardgame-org-mode-map` with intuitive single-key navigation, modal actions, and interactive completion menus).
-> - **Documentation**: Complete, comprehensive `readme.org` in Russian with architecture explanations, installation instructions, keybindings table, and ERT testing guide.
+> Revised architectural requirements:
+> - **Elisp Package Directory**: All Emacs Lisp files are housed strictly within `src.el/` (`boardgame-org.el`, `boardgame-org-core.el`, `boardgame-org-object.el`, `boardgame-org-stack.el`, `boardgame-org-container.el`, `boardgame-org-hand.el`, `boardgame-org-board.el`, `boardgame-org-render.el`, `boardgame-org-test.el`).
+> - **TypeScript Application Scope**: Solely responsible for displaying and navigating `readme.org` instructions with authentic Emacs Doom-One dark styling, Table of Contents, and code copying.
+> - **Dev Server Reliability**: Lightweight Vite configuration on port 3000 (`host: '0.0.0.0'`, `allowedHosts: true`) without heavy canvas or state overhead, ensuring instant 200 OK responses.
 
 ---
 
 ## 1. Overview & Core Concept
 
-`boardgame.org` implements an Emacs-native tabletop environment built around file-oriented persistence and Org-mode serialization:
+1. **Emacs Lisp Package (`src.el/`)**:
+   - Implements the text-based tabletop environment in Emacs where Org-mode documents represent game objects, stacks, containers, and felt board state.
+   - Preserves all architectural boundaries and invariants from `boardgame-org.md`:
+     - *Object is a file*: an independently existing object has its own Org file.
+     - *Stacks vs Containers*: Stacks consolidate documents into one and delete standalone files; Containers organize objects via Org links while keeping standalone files intact.
+     - *Felt Normalization*: fills missing cells with default symbol, trims excess.
+     - *Layering & Indicators*: displays top object glyph and numerical count indicator (`1`-`9`, `+`) immediately to its left.
+     - *Git World History*: commits world states after operations for safe rollback.
 
-- **An Object is a File**: Every independently existing game object (cards, dice, tokens, meeples) is backed by an individual `.org` file containing property drawers (`:PROPERTIES:` ... `:END:`), glyph, name, type, and optional action blocks.
-- **Stacks vs Permanent Containers**:
-  - **Stack (Section 3.1)**: Consolidates multiple object documents into a single Org document. When objects are stacked, their former standalone files are removed. Expanding a stack reconstructs the standalone files and deletes the stack file.
-  - **Permanent Container (Section 3.2)**: Organizes independent objects using Org links without merging their files. Standalone files remain intact. Containers support shuffle and draw actions and persist even when empty.
-- **Felt Tabletop Buffer (`*boardgame-org*`)**: An interactive grid display showing felt background characters, coordinate axes (columns A-Z, rows 1-N), and layered game objects.
-- **Layering & Count Indicator (Section 5)**: When multiple objects occupy a coordinate, the top glyph is displayed alongside a count indicator immediately to its left (`1`-`9`, or `+` if greater than 9).
-- **Felt Normalization (Section 4.6)**: Automatically normalizes raw felt ASCII blocks to declared width/height dimensions.
-- **Git World Version Control (Section 6)**: Automatically creates Git commits representing world transitions for recoverable history.
+2. **Documentation (`readme.org`)**:
+   - Detailed user and developer guide in Russian covering installation (straight.el, use-package, load-path), core concepts, complete table of keybindings, command reference, and ERT regression test execution.
 
----
-
-## 2. User Experience & Visual Design (Emacs Buffer)
-
-### Key User Flows
-
-1. **Tabletop Launch**:
-   - `M-x boardgame-org`: Initializes the world directory, ensures standard subfolders (`boards/`, `objects/`, `stacks/`, `containers/`, `hands/`), loads `boards/main.org`, and opens the `*boardgame-org*` buffer.
-2. **Cursor Navigation**:
-   - Navigate with arrow keys or Vi-style `h`, `j`, `k`, `l` (or Emacs `C-f`, `C-b`, `C-n`, `C-p`).
-   - The header line updates dynamically showing current coordinates (e.g. `[Point: C4]`), object count, and top object details.
-3. **Object Actions**:
-   - `H`: Pick up top object into player hand (`hands/player1.org`).
-   - `P`: Play object from hand to the board cursor coordinate.
-   - `S`: Consolidate all objects at the cursor into a single stack document (removes individual files).
-   - `U`: Expand stack into independent object files.
-   - `d`: Draw card from container/deck at cursor into player hand.
-   - `s`: Shuffle container at cursor.
-   - `r`: Roll die (updates face value and glyph).
-   - `F`: Flip card (toggles face-up / face-down `🂠`).
-   - `o`: Open Org document of the object at point in another window.
-   - `g`: Commit world state to Git with a custom message.
-
-### Visual Modeline & Faces
-
-```
-[Point: D3 (3 items)] Top: 🂡 Ace of Spades (card) | Hand: 2 items | ?: Help
-```
-
-- Custom Emacs faces for:
-  - `boardgame-org-felt-face`: Subdued background dot character (`.`)
-  - `boardgame-org-object-face`: High-contrast object glyphs
-  - `boardgame-org-count-face`: Accent color for count numbers (`2`, `3`, `+`)
-  - `boardgame-org-cursor-face`: Subtle box cursor overlay
-  - `boardgame-org-coord-face`: Modest coordinate column/row labels
+3. **TypeScript Interactive Reader (`src/`)**:
+   - Renders `readme.org` in the browser with an authentic Emacs buffer feel:
+     - Doom-One color palette (`#1bbc95` greens, `#51afef` blues, `#ecbe7b` yellows, `#ff6c6b` reds).
+     - Collapsible Table of Contents with jump-to-section.
+     - One-click copy for Elisp configuration and code blocks.
+     - One-click download of all `src.el/*.el` files as an archive / raw files.
 
 ---
 
-## 3. Key Product Decisions & Trade-Offs
+## 2. User Experience & Visual Design
 
-- **Multi-File Modularity in `src/`**:
-  - *Decision*: Split implementation into focused modules (`boardgame-org-core.el`, `boardgame-org-object.el`, `boardgame-org-stack.el`, `boardgame-org-container.el`, `boardgame-org-hand.el`, `boardgame-org-board.el`, `boardgame-org-render.el`, `boardgame-org.el`, and `boardgame-org-test.el`) all located within `src/`.
-  - *Why*: Satisfies Section 7 of `boardgame-org.md` (functions under 50 lines, single responsibility, high maintainability, unit testability).
-- **Native Keymap over External Hydra**:
-  - *Decision*: Built directly using `boardgame-org-mode-map` and standard Emacs transient prompt (`read-char-choice` / `completing-read`), removing hard external dependency on Hydra while keeping instant one-key actions.
-- **Strict Invariant Enforcement**:
-  - *Decision*: Stack consolidation physically calls `delete-file` on consolidated items and writes a consolidated stack file. Stack expansion writes standalone files and deletes the stack file.
-  - *Why*: Conforms strictly to the normative architectural boundary in Section 2.1 and 3.1.
+### TypeScript Documentation Viewer Interface
+
+- **Emacs Header & Modelines**:
+  - Buffer title: `-U:---  readme.org   (Org View)----L1--All----------------`
+  - Quick action toolbar: Search / filter sections, Toggle TOC, Copy Elisp config, Download package archive.
+- **Org Document Renderer**:
+  - Level 1 (`*`), Level 2 (`**`), Level 3 (`***`) Org headings with colored stars and fold/unfold toggles.
+  - Property drawers (`:PROPERTIES:` ... `:END:`) rendered with authentic syntax coloring.
+  - Org source blocks (`#+begin_src elisp ... #+end_src`) with line numbers and instant "Copy" button.
+  - Org tables (`|---|---|`) with aligned monospace borders and column headers.
+  - Org quote blocks (`#+BEGIN_QUOTE`) with left accent border.
+- **Sidebar Table of Contents**:
+  - Sticky sidebar navigation tracking the active reading section.
 
 ---
 
-## 4. Technical Architecture & Component Structure
+## 3. Technical Architecture & File Layout
 
 ### Architecture Diagram
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        boardgame-org.el                                │
-│          (Interactive Commands, Major Mode, Menu & Keymap)             │
-└───────┬───────────────────────────────┬────────────────────────┬───────┘
-        │                               │                        │
-        ▼                               ▼                        ▼
-┌──────────────────┐            ┌───────────────┐        ┌───────────────┐
-│ boardgame-org-   │            │boardgame-org- │        │boardgame-org- │
-│    render.el     │            │   board.el    │        │    hand.el    │
-│(Buffer Drawing,  │            │(Felt Grid,    │        │(Player Hands, │
-│ Glyphs & Counts) │            │ Normalization,│        │ Play / Pickup)│
-└──────────────────┘            │ Serialization)│        └───────────────┘
-        │                               │                        │
-        ▼                               ▼                        ▼
-┌──────────────────┐            ┌───────────────┐        ┌───────────────┐
-│ boardgame-org-   │            │boardgame-org- │        │boardgame-org- │
-│    stack.el      │            │ container.el  │        │   object.el   │
-│(Consolidation,   │            │(Decks, Shuffle│        │(Org Properties│
-│ Standalone File  │            │ Draw, Preserve│        │ File Lifecycle│
-│ Deletion/Expand) │            │ Standalone)   │        │ Invariants)   │
-└───────┬──────────┘            └───────┬───────┘        └───────┬───────┘
-        │                               │                        │
-        └───────────────────────┬───────┴────────────────────────┘
-                                ▼
-                ┌───────────────────────────────┐
-                │     boardgame-org-core.el     │
-                │(cl-defstruct, Git VC, Config) │
-                └───────────────┬───────────────┘
-                                ▼
-                ┌───────────────────────────────┐
-                │   Org World File Repository   │
-                │(boards/, objects/, stacks/,   │
-                │ containers/, hands/, docs/)   │
-                └───────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             Web Application                                 │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │      src/App.tsx (Emacs Doom-One Interactive readme.org Viewer)       │  │
+│  │    [Table of Contents] [Syntax Highlighting] [Code Copy] [Download]   │  │
+│  └───────────────────────────────────┬───────────────────────────────────┘  │
+│                                      │ reads & renders                      │
+│                                      ▼                                      │
+│                                 readme.org                                  │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │ documents
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    Emacs Lisp Package in src.el/                            │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │                           boardgame-org.el                            │  │
+│  │                 (Major Mode, Keymaps, Commands & Menu)                │  │
+│  └───────┬───────────────────┬───────────────────┬───────────────────┬───┘  │
+│          ▼                   ▼                   ▼                   ▼      │
+│  ┌───────────────┐   ┌───────────────┐   ┌───────────────┐   ┌───────────┐  │
+│  │-render.el     │   │-board.el      │   │-stack.el      │   │-hand.el   │  │
+│  │(Felt display, │   │(Grid models,  │   │(Consolidation,│   │(Player    │  │
+│  │ Count badges) │   │ Normalization)│   │ File deletion)│   │ hand doc) │  │
+│  └───────┬───────┘   └───────┬───────┘   └───────┬───────┘   └─────┬─────┘  │
+│          ▼                   ▼                   ▼                 ▼        │
+│  ┌───────────────────────────────────────────────┐   ┌───────────────────┐  │
+│  │              boardgame-org-object.el          │   │-container.el      │  │
+│  │        (Org Properties & File Invariants)     │   │(Links & Decks)    │  │
+│  └───────────────────────┬───────────────────────┘   └─────────┬─────────┘  │
+│                          ▼                                     ▼            │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │                        boardgame-org-core.el                          │  │
+│  │               (cl-defstruct, Git VC Commit, Defcustom)                │  │
+│  └───────────────────────────────────┬───────────────────────────────────┘  │
+│                                      ▼                                      │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │                       boardgame-org-test.el                           │  │
+│  │                    (ERT Regression Test Suite)                        │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Module Responsibilities inside `src/`
+### Planned Files
 
-1. **`src/boardgame-org-core.el`**:
-   - Custom variables: `boardgame-org-world-directory`, `boardgame-org-default-felt-symbol`, `boardgame-org-auto-commit`.
-   - Struct definitions (`cl-defstruct`): `boardgame-org-object`, `boardgame-org-board`, `boardgame-org-placed`, `boardgame-org-hand`.
-   - File path and Git commit helpers.
-2. **`src/boardgame-org-object.el`**:
-   - Org document parsing: properties drawer, heading, and body description.
-   - Serialization to standard Org document.
-   - File invariant operations: `save-file` and `delete-file`.
-3. **`src/boardgame-org-stack.el`**:
-   - `boardgame-org-stack-consolidate`: merges multiple object documents into a single stack Org document and removes former standalone files.
-   - `boardgame-org-stack-expand`: reconstructs standalone Org files and removes the stack document.
-4. **`src/boardgame-org-container.el`**:
-   - Permanent container parsing and serialization using link format `[[file:objects/...][...]]`.
-   - `shuffle`: in-place member randomization.
-   - `draw`: pop top member without deleting file.
-5. **`src/boardgame-org-hand.el`**:
-   - Hand file serialization and in-memory management.
-6. **`src/boardgame-org-board.el`**:
-   - Felt normalization (Section 4.6): fills missing cells with default symbol, discards excess.
-   - Board Org document parsing and serialization.
-   - Object coordinate tracking and movement.
-7. **`src/boardgame-org-render.el`**:
-   - Tabletop buffer rendering.
-   - Multi-object count indicator calculation (`1`-`9`, `+`).
-8. **`src/boardgame-org.el`**:
-   - Main package entry point, `boardgame-org-mode`, keymap, and interactive commands.
-9. **`src/boardgame-org-test.el`**:
-   - ERT regression test suite verifying felt normalization, object file invariants, stack consolidation/expansion, container preservation, and round-trip serialization.
-10. **`readme.org`**:
-    - Comprehensive guide in Russian detailing architecture, installation, keybindings, and testing.
+1. **`src.el/boardgame-org-core.el`**: Data structs, defcustom options, Git VC helpers.
+2. **`src.el/boardgame-org-object.el`**: Object parsing/serialization, property drawers, file invariant (`save-file`, `delete-file`).
+3. **`src.el/boardgame-org-stack.el`**: Stack consolidation into one document (removes individual files) and stack expansion.
+4. **`src.el/boardgame-org-container.el`**: Permanent container (decks, boxes) organization via links, shuffle, draw without deleting files.
+5. **`src.el/boardgame-org-hand.el`**: Player hand persistence (`hands/<player>.org`).
+6. **`src.el/boardgame-org-board.el`**: Felt grid representation, normalization (Section 4.6), board load/save.
+7. **`src.el/boardgame-org-render.el`**: Felt rendering, multi-object count indicators (`1`-`9`, `+`), custom faces.
+8. **`src.el/boardgame-org.el`**: Package entry point, `boardgame-org-mode`, keymap, and interactive commands.
+9. **`src.el/boardgame-org-test.el`**: ERT regression test suite verifying felt normalization, invariants, stacks, and containers.
+10. **`readme.org`**: Full guide in Russian with architecture, installation, keybindings, and ERT testing.
+11. **`src/App.tsx` & `src/main.tsx`**: Lightweight, responsive Doom-One styled interactive Org reader rendering `readme.org`.
