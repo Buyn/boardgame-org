@@ -43,9 +43,7 @@
 Все изменения фиксируются в Git-репозитории мира с понятными сообщениями коммитов, что позволяет легко откатиться к любому состоянию партии.
 
 * Установка и запуск в Emacs
-
 Пакет расположен в каталоге =src.el/=.
-
 ** Вариант 1: Через Straight / use-package
 #+begin_src emacs-lisp
 (use-package boardgame-org
@@ -62,8 +60,12 @@
 (require 'boardgame-org)
 
 ;; Запуск настольной среды:
-(boardgame-org "~/Dev/boardgame-world/")
+(setq boardgame-org-world-directory "~/Dev/emacs/boardgame-world/")
+(boardgame-org "~/Dev/emacs/boardgame-world/")
 #+end_src
+
+#+RESULTS:
+: #<buffer *boardgame-org*>
 
 * Горячие клавиши и управление
 
@@ -105,6 +107,7 @@
 (load-file "src.el/boardgame-org-test.el")
 (ert "^boardgame-org")
 #+end_src
+
 
 Тесты верифицируют:
 - Корректную нормализацию размеров сукна при любых входных данных.

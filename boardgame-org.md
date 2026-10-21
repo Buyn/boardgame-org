@@ -8,7 +8,6 @@
 **Project philosophy:** File-oriented state management, Org-mode serialization, explicit context transformations, modular implementation, and recoverable world history.
 
 ## 1. Architectural Boundaries
-
 The specification distinguishes three categories of requirements:
 
 - **Requirements:** Observable behavior and invariants that every conforming implementation must preserve.
@@ -22,7 +21,6 @@ The central purpose of `boardgame.org` is to provide a text-based tabletop envir
 The project is not intended to be a conventional database-backed game engine.
 
 ## 2. Org Files as Object Identity and Persistent Representation
-
 ### 2.1. An Object Is a File
 
 An independently existing game object is represented by an Org file.
@@ -73,9 +71,7 @@ The important architectural operation is the deliberate transformation of these 
 The implementation should make these distinctions explicit in the command and data-model architecture.
 
 ## 3. Stacks and Containers Are Fundamentally Different
-
 Stacks and containers may look similar on the board, but they have different persistence semantics. They must be modeled as distinct concepts rather than two visual variations of the same generic operation.
-
 ### 3.1. Stack: Consolidation of Org Documents
 
 A stack is a consolidated Org document containing the content of multiple objects.
@@ -145,7 +141,6 @@ The operations should have distinct names, responsibilities, and tests.
 Tests must verify not only what appears on the board but also which Org files exist afterward and what their contents represent.
 
 ## 4. Source of Truth and Serialization
-
 ### 4.1. The In-Memory Model
 
 The running game has an internal representation of its current state.
@@ -177,21 +172,13 @@ Object-specific properties and behavior may be obtained from the corresponding o
 The implementation may cache parsed data or use other optimizations, provided they do not undermine the defined loading and saving semantics.
 
 ### 4.3. Saving
-
 When a board is saved, the current in-memory model is the source of truth for the state being serialized.
-
 The serializer writes that model into the board's Org document.
-
 It must not blindly overwrite the current board with stale values from the document originally loaded.
-
 The saved representation must be sufficient to reconstruct the intended state on a subsequent load.
-
 The serializer and loader should be designed as complementary operations. Their behavior should be verified with round-trip tests.
-
 For a state that contains only supported, serializable data, the following conceptual relationship should hold:
-
 `deserialize(serialize(state))` reconstructs an equivalent state.
-
 Equivalence concerns the defined game semantics, not necessarily the identity of internal Lisp objects or the exact arrangement of data structures in memory.
 
 ### 4.4. Human-Editable Persistence
@@ -207,7 +194,6 @@ The implementation should validate the data it reads and report malformed or mis
 The loader must not assume that every document was generated exclusively by the current running session.
 
 ### 4.5. Board File Structure
-
 A board Org document contains named sections for the board's persistent components.
 
 The felt section contains a source block representing the background grid. Board properties specify the intended dimensions.
@@ -233,7 +219,6 @@ When saving, the serialized felt should represent the intended board dimensions 
 The implementation should define how line endings and character positions are handled. Since Emacs buffers operate on characters rather than display columns, rendering must account for the display width of the supported glyphs. If the board format is intended to use one display column per cell, its supported cell characters must respect that constraint or be normalized appropriately.
 
 ## 5. Object Ordering and Rendering
-
 The specification defines the visual and behavioral results of rendering, not the internal data structure used to achieve them.
 
 Multiple objects may occupy the same board coordinate.
@@ -257,7 +242,6 @@ The serialized board must nevertheless preserve enough information to reconstruc
 If a different representation is chosen, it must preserve equivalent behavior and remain compatible with manual editing of the Org document.
 
 ## 6. Persistence Reliability and Version Control
-
 ### 6.1. Recovery Strategy
 
 The initial implementation should not introduce an elaborate transaction manager, locking framework, or bespoke rollback subsystem without a demonstrated requirement.
@@ -302,9 +286,7 @@ The package may provide convenience commands for common operations, but it shoul
 The initial design should prioritize transparent persistence and practical recovery over a complex custom transaction architecture.
 
 ## 7. Implementation Quality Requirements
-
 The implementation should follow these engineering principles:
-
 - **DRY:** Shared behavior belongs in reusable functions rather than duplicated code.
 - **Single responsibility:** Functions should have clear, narrowly defined responsibilities.
 - **Readable code:** Prefer explicit names and straightforward control flow over clever abstractions.
@@ -323,7 +305,6 @@ This is a readability guideline, not a reason to split coherent logic into artif
 The package should be divided into files based on responsibility, such as board data, serialization, objects, hands, containers, rendering, drawing, logging, commands, and tests. The final module boundaries may evolve as the implementation becomes clearer.
 
 ## 8. Testing Requirements
-
 The project should use both unit tests and integration tests.
 
 Unit tests should cover individual modules and their defined responsibilities.
@@ -348,7 +329,6 @@ Particularly important tests include:
 Tests must verify persistent file effects as well as the visible game state. A test that confirms an object appears correctly on the board is insufficient if the operation also requires creating, retaining, consolidating, or removing particular Org files.
 
 ## 9. Deliberately Unspecified Implementation Details
-
 The following decisions remain open unless later requirements make them necessary:
 
 - The concrete in-memory representation of the board and game objects.
@@ -364,7 +344,6 @@ The developer is expected to choose efficient, maintainable solutions and docume
 These freedoms do not permit changing the externally defined semantics of stacks, containers, serialization, or object persistence.
 
 ## 10. Governing Principle
-
 `boardgame.org` should treat Org-mode documents as first-class, human-editable representations of game objects and persisted board state.
 
 The system may maintain any suitable internal model while running, but it must preserve the defined relationship between that model and the serialized documents.
