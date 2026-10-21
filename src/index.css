@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-main: #1e1e2e;
+    --bg-surface: #181825;
+    --bg-surface-elevated: #313244;
+    --border-color: #45475a;
+    --text-primary: #cdd6f4;
+    --text-secondary: #a6adc8;
+    --text-dim: #6c7086;
+    --accent-gold: #f9e2af;
+    --accent-green: #a6e3a1;
+    --accent-blue: #89b4fa;
+    --accent-red: #f38ba8;
+    --accent-purple: #cba6f7;
+    --felt-bg: #11111b;
+  }
+}
+
+/* Custom scrollbars for Emacs vibe */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #181825;
+}
+::-webkit-scrollbar-thumb {
+  background: #45475a;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #585b70;
+}
+
+/* Org mode heading styles */
+.org-h1 { color: #89b4fa; font-weight: 700; }
+.org-h2 { color: #a6e3a1; font-weight: 600; }
+.org-h3 { color: #f9e2af; font-weight: 600; }
+.org-prop-drawer { color: #9399b2; font-style: italic; }
+.org-prop-key { color: #f38ba8; font-weight: 500; }
+.org-prop-val { color: #fab387; }
+.org-src-block { background: #11111b; border-left: 3px solid #89b4fa; }
+.org-link { color: #89dceb; text-decoration: underline; text-underline-offset: 2px; }
