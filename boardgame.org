@@ -78,13 +78,6 @@ This is a specific hand-to-board behavior. It must not be confused with stack cr
 
 Whether playing a card consumes it from the hand or copies it must be explicitly defined for each relevant operation. The implementation must not silently duplicate or discard a card when the operation's intended semantics are ambiguous.
 
-** urgent 
-** TODO in progress
-*** WAITING boardgame-org-interface.md
-я добавил дополнительный фаил спецификации. описываюний поведение и интерфейс.
-довай перепишим пакет для того чтоб он отражал новые требования на указаные в новом файле спецификации. учитываю основной фаили спецификации boardgame-org.md.
-** dezine
-** todo
 *** DONE Телепортация описана не понятно.
 вообще не собирался её добовлят Ты её взял из раних обсуждений.
 несобирался добовлять потому что она не требует посути дополнительной механики.
@@ -106,12 +99,72 @@ The user must be able to:
 Teleportation must not modify the felt or remove objects from the destination cell.
 
 Invalid coordinates or missing markers must produce a clear message without leaving the cursor in an undefined state.
-*** неплохо но я бы добавил еша наличие специально команды
+** urgent 
+** TODO in progress
+*** WAITING boardgame-org-interface.md
+я добавил дополнительный фаил спецификации. описываюний поведение и интерфейс.
+довай перепишим пакет для того чтоб он отражал новые требования на указаные в новом файле спецификации. учитываю основной фаили спецификации boardgame-org.md.
+** dezine
+** todo
+*** DONE неплохо но я бы добавил еша наличие специально команды
 раз уж мы пошли описывать это. команда создать обект маркер.
 по этой команда в точке где находится курсор формируется новый оргфал обект с имене "маркер (имя доски) (координаты)" и символом `^` белого цвета без определёного фона.
 с координатами курсора в даный момент и именем доски на которой курсо сейчас. Ну и естественно сорс блоком выплонение которо переместит курсор в это место. тоесть потом это обект можно перемести в любое место даже другой доски но этого мира и выполник он вернёт в место своего создания. такова идея просто создания таково маркера
 это бутет полезно как демонстарционый пример и удобная механика сама по себе.
 Важно продемонстрировать что в сорс блоки могут бывать казаны координаты для пермешения. Но формируемы обекст имеет перменые для перемешения в свойствах и сорс блок их сам извлекает. И используется для перемешения.
+*** DONE Я бы уточнил
+удалёнай стол это всегда имя файла! это просто и следует файловой логике.
+
+## 11. Cursor Navigation Between Boards
+### 11.1. General Principle
+The package must provide a command that moves the cursor to specified coordinates on a specified board.
+
+This is a general-purpose navigation command. It must support both the currently active board and another board belonging to the active world.
+
+The command must accept:
+- Target board identification.
+- Target horizontal coordinate.
+- Target vertical coordinate.
+
+When no board is explicitly specified, the command targets the active board according to the package's active-board resolution rules.
+
+The command must validate the target board and coordinates. If the target cannot be resolved or the coordinates are invalid, it must report the problem without silently moving the cursor to an unintended location.
+
+When targeting another board, the command must make that board accessible in the appropriate game frame or window and position its cursor at the requested coordinates. It must not unexpectedly replace the board displayed in an unrelated game frame.
+
+### 11.2. Implementation Through Object Source Blocks
+A teleportation marker is an ordinary object represented by an Org file. It requires no special object type, dedicated data structure, or teleportation-specific command.
+
+Its Org properties specify the destination board and coordinates. Its source block invokes the general cursor-navigation command with those values.
+
+When the object's source block is executed, the cursor moves to the configured coordinates on the configured board.
+
+Thus, teleportation is simply a behavior implemented by an object's source code. The package must not introduce a separate teleportation subsystem.
+
+### 11.3. Execution and Validation
+The source block must use the standard object-source execution mechanism.
+
+The navigation command must:
+- Resolve the destination board.
+- Validate the requested coordinates against the board dimensions.
+- Display or activate the destination board as required by the navigation behavior.
+- Move the board cursor to the requested cell.
+- Report errors clearly when the board or coordinates are invalid.
+
+The source block is responsible for passing the destination values to the navigation command. The navigation command itself remains independent of teleportation and can be used by any object or other executable code.
+
+### 11.4. Acceptance Criteria
+1. The package provides a general command to move the cursor to specified coordinates on a specified board.
+2. The command works with the active board and with another board in the active world.
+3. A normal object Org file can invoke this command from a source block.
+4. A marker that invokes the command requires no dedicated teleportation type or subsystem.
+5. Executing the marker's source block moves the cursor to its configured destination.
+6. Invalid boards and coordinates produce clear errors without unintended navigation.
+7. All navigation uses the same general-purpose command, regardless of which object or source block invokes it.
+*** я неуверен на сколько чётко читает понятие имя маркера
+тоесть это старндартный обект и имя значит первый раздел в этом обекте. Который и явлется именем.
+Это вроде очевидно. но нужно ли это прописать повторно?
+
 *** убедится что описаны обекты
 и что описана команда открыть орг обекта
 *** добавить раздел списка доп тестов?
