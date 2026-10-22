@@ -1,693 +1,830 @@
-# Boardgame.org — Commands and Gameplay Behavior
-## 1. Purpose and Scope
-`boardgame-org-interface.md` defines the user-visible behavior of `boardgame.org`: how the game starts, how users interact with boards and objects, how drawing works, how hands and containers behave, and how game data is opened, created, saved, and managed.
-
-This document complements the architecture and implementation specification. It defines required behavior without unnecessarily prescribing internal data structures, algorithms, or implementation details.
-
-The package is an Emacs Lisp text-based tabletop game engine inspired by ZZT and ASCII board games. Org mode is a hard dependency. Hydra may optionally be used to provide command menus, but it must not be required. Evil compatibility is desirable, but Evil must not be a dependency.
+# boardgame-org-interface.md
+## 1. Purpose and Relationship to `boardgame-org.md`
+This document defines the user-facing interface and observable behavior of `boardgame.org`, an Emacs Lisp tabletop game engine inspired by ZZT and character-based board games.
+It is an **integral part of `boardgame-org.md`**, not an independent or optional specification.
+The two documents have the following responsibilities:
+- `boardgame-org.md` defines the project architecture, data model, Org document conventions, implementation principles, dependencies, and testing requirements.
+- `boardgame-org-interface.md` defines how users start and interact with the game, how frames and buffers behave, how boards and objects are managed, and how commands and gameplay features must work.
+If these documents contradict one another or allow conflicting interpretations, **`boardgame-org-interface.md` takes precedence for interface behavior, command behavior, frame and buffer management, file-selection workflows, and user-visible gameplay semantics**. Architectural requirements that do not conflict with these clarifications remain in force.
+This document specifies observable behavior rather than mandatory internal data structures. The implementation may choose the most suitable internal representation as long as the behavior defined here is preserved.
 
 ## 2. Core Concepts
-The game consists of the following concepts:
-
-- **World:** a directory containing boards, object Org files, hands, containers, and other world-specific data.
-- **Board:** a rectangular character-based game space with a felt layer and movable objects.
-- **Felt:** the underlying character map, including spaces and arbitrary text characters.
-- **Object:** a game entity represented by an Org document or a section within a consolidated stack document.
+- **World:** a directory containing boards, object Org files, hands, containers, stacks, and other world-specific resources.
+- **Board:** a rectangular character-based game space with a felt layer and game objects.
+- **Felt:** the underlying character map, including spaces, arbitrary characters, and supported cell colors.
+- **Object:** a game entity represented by an independent Org document or, after stack consolidation, a section of a combined Org document.
 - **Hand:** an ordered collection of cards or objects represented by an Org file.
 - **Container:** a persistent object that organizes references to other objects without merging their independent Org files.
-- **Stack:** an explicitly created consolidation of objects into a combined Org document.
-- **Card/deck:** an object or collection of objects that can be selected, drawn, played, shuffled, or executed.
-- **Game frame:** a dedicated Emacs frame containing the board and side log.
-- **Side log:** a game-specific message area that displays only messages explicitly sent to it.
+- **Stack:** an explicitly created consolidation of selected objects into a combined Org document.
+- **Game frame:** an Emacs frame containing a board and the associated game interface.
+- **Side log:** a shared game-log buffer for the active world, displaying messages explicitly sent through the game's logging interface.
+- **Active board:** the board currently targeted by implicit board commands, represented by a globally accessible variable.
 
-The implementation may choose the most efficient internal representation for these concepts. The observable behavior and persistence semantics defined here must remain consistent.
+## 3. Starting the Game and Selecting a World
+### 3.1. Starting with an explicit world
+The main startup command must accept an optional world directory argument.
+Conceptually:
+`boardgame-start [WORLD-DIRECTORY]`
+When a directory is provided, the game must use that directory as the requested world.
+If the directory exists and is valid, the package activates it.
+If the directory does not exist, the package must offer to create and initialize it. It must not silently substitute another world.
+If the requested location exists but is not a valid world directory, the package must report the problem and offer an appropriate recovery path.
 
-## 3. Starting the Game and Managing the Frame
-### 3.1. Starting the game
-The command `boardgame-start` must open a dedicated Emacs frame for the game session.
+### 3.2. Default world directory
+The package must provide a user-customizable variable for the default world directory, for example:
+`boardgame-default-world-directory`
+Its default value may be `nil`, meaning that the user has not configured a default world.
+When `boardgame-start` is called without an explicit directory:
+1. If `boardgame-default-world-directory` identifies an existing valid world, activate it.
+2. If it identifies a missing directory, offer to create the world there.
+3. If it is unset, invalid, or cannot be used, offer a world-selection workflow.
+The exact variable name may be refined during implementation, but the configurable default-world behavior is mandatory.
 
-The game must not replace the user's existing editing frame or require the user to abandon their current Emacs workspace.
+### 3.3. Selecting or creating a world
+The world-selection workflow must allow the user to select an existing world directory or specify a new directory.
+The package must distinguish between opening an existing world and creating a new one.
+Creating a world must initialize the directory structure required by the package. It must not overwrite an existing world's contents.
 
-The game frame must provide the following layout:
+### 3.4. Switching worlds
+Only one world may be active at a time.
+Switching worlds must not silently discard unsaved changes in boards belonging to the previous world.
+The package must resolve open-board state and unsaved changes before switching the active world. It must not leave buffers associated with the old world accidentally operating on files in the new world.
 
-- **Board area:** approximately 80% of the frame width, on the left.
-- **Side-log area:** approximately 20% of the frame width, on the right.
-- **Optional status area:** a horizontal split in the side-log region, reserving approximately 20% of that region for persistent game information and leaving the remainder for messages.
+## 4. Game Frames, Boards, and Shared State
+### 4.1. Dedicated game frame
+Starting the game must open a dedicated Emacs frame for the game interface. The user's existing editing frame must remain available and must not be repurposed as the game frame.
+The game frame must display a board and the shared side log.
 
-The proportions must be user-configurable.
+### 4.2. Board layout
+The default layout must allocate approximately:
+- 80% of the frame width to the board window.
+- 20% of the frame width to the side-log area window.
+The side-log area may be split horizontally. When the optional status area is enabled, approximately 20% of the side-log region may be reserved for persistent contextual information, leaving the remaining area for log messages.
+These proportions must be user-configurable.
 
-The status area may display information such as global variables, tokens, active object properties, the active hand, and drawing-mode settings.
+### 4.3. Multiple boards in one frame
+The user must be able to open and switch between multiple boards within the same game frame.
 
-The board must be displayed in a dedicated game buffer, not as a normal Org document. Its associated Org file is the format used for loading and saving the board.
+Switching boards must change the board displayed in the relevant board window without unintentionally replacing the shared log or losing another board's state.
 
-The board buffer must be an ordinary Emacs text buffer. Character colors should be implemented with text properties or another appropriate text-based rendering technique.
+The exact navigation mechanism may use commands, completion, a board list, or another suitable interface.
 
-Board lines must not wrap. A board may be wider or taller than its visible window. Native Emacs scrolling and cursor visibility behavior should be preserved; the package must not force the entire board to fit into the window.
+### 4.4. Multiple game frames
+The user must also be able to display different boards in different game frames.
 
-### 3.2. Worlds and multiple boards
-Only one world may be active at a time, but multiple boards from that world may be open simultaneously.
+For example, the user may open Board A in one game frame and Board B in another. Both boards may belong to the same active world.
 
-Switching worlds must not silently discard unsaved changes in any open board.
+Each frame must retain its own association with the board displayed in that frame. Switching the board in one frame must not silently change the board displayed in another frame.
 
-Each open board must retain its own identity and state. Switching between boards must not accidentally overwrite one board with another.
+However, boards displayed in different frames that belong to the same active world must use the same shared world log buffer.
 
-The user must be able to open a different board while keeping the current board open.
+The package must support both workflows:
 
-### 3.3. Closing the game
+- Open or switch to another board in the current game frame.
+- Open or display another board in a separate game frame.
 
-Closing the game frame or session must not silently discard unsaved board changes.
+The implementation may provide a frame-selection argument or separate interactive commands for these operations.
 
-The package must provide a clear workflow for saving, abandoning, or cancelling an operation when unsaved changes exist.
+### 4.5. One world, one shared log
+All game frames associated with the same active world must share one game-log buffer.
 
-Closing the game interface must not automatically delete world files, object files, hands, containers, or saved boards.
+A message sent to the game log from any board or game frame must appear in that shared log.
 
-## 4. Worlds, Files, and Resource Creation
+Opening another board from the same world must not create an unrelated log buffer by default.
 
-### 4.1. World structure
+Switching worlds must associate the game interface with the appropriate log for the newly active world. The implementation must not mix messages from different worlds into one log unless explicitly configured to do so.
 
-A world is a directory containing all files belonging to that game world. It may contain:
+The log may be temporary by default. Optional persistent per-board logging may be supported separately, but it must not replace the requirement for a shared world-level session log.
 
-- Board Org files.
-- Independent object Org files.
-- Hand Org files.
-- Container and deck definitions.
-- Consolidated stack documents.
-- Optional persistent logs.
-- Other world-specific metadata or resources.
+### 4.6. Active board tracking
+The package must provide a globally accessible variable representing the currently active board, for example:
+`boardgame-current-board-buffer`
 
-The exact directory structure may be configurable, but the default must be predictable and documented.
+This variable must identify the board buffer that implicit board commands should operate on.
+The variable is required even if the implementation also maintains frame-local board associations.
+Its purpose is to remove ambiguity when multiple boards or game frames are open.
 
-References between resources should use world-relative paths wherever practical.
+The active-board value must be updated when:
+- A board is opened and becomes the current target.
+- The user switches to another board.
+- A command explicitly selects or operates on another board.
+- A command opens a board and makes it the current target.
+- A command is executed under the cursor on board.
 
-### 4.2. Missing resources
+Commands that explicitly receive a board argument must operate on that board. Otherwise, they must resolve their target through the active-board mechanism.
 
-A missing resource must not automatically be treated as a fatal error.
+The implementation must document the precise precedence between an explicit board argument, the board associated with the selected game frame, and `boardgame-current-board-buffer`. These rules must be consistent across all commands.
 
-When the user requests a world, board, object, or other persistent resource by name, and that resource does not exist, the package must offer to create it when creation is appropriate.
+The active-board variable must not be treated as a replacement for maintaining the board associated with each frame. It is a global indication of the current command target, not a claim that only one board may be open.
 
-Examples:
+### 4.7. Unsaved boards
+Each board must maintain its own change state.
 
-- Opening a missing world should offer to create its directory and initialize it.
-- Opening a missing board should offer to create a new board.
-- Opening a missing object should offer to create its Org document.
-- Opening a missing hand should offer to create a hand file when the operation permits creation.
+Switching boards, opening another frame, or changing the active-board variable must not discard another board's unsaved changes.
 
-Creation must not silently overwrite existing files. The package must distinguish between a missing resource, an invalid path, a malformed document, and an inaccessible location.
+Closing a board, closing a game frame, or switching worlds must trigger the appropriate save, discard, or cancel workflow whenever unsaved changes could be lost.
 
-### 4.3. File-selection workflow
+### 4.8. Board and Log Window Architecture
+The game interface must use standard Emacs windows and buffers. The board and the session log are separate buffers displayed in separate windows within the same game frame.
 
-Commands that require an Org file must provide a file-selection or completion workflow.
+- **Board window:** displays the active board buffer. Each board is a regular Emacs text buffer backed by its own Org file.
+- **Log window:** displays the world-level session log buffer. All game frames displaying boards from the same world share this log buffer.
+- **Window layout:** the board window occupies approximately 80% of the available horizontal space, and the log window occupies approximately 20%. These proportions must be configurable.
+- **Independent navigation:** scrolling the board must not scroll the log, and scrolling the log must not scroll the board. Each window retains its own normal Emacs navigation and scrolling behavior.
+- **Native window management:** use Emacs window-management facilities to create, arrange, resize, and manage these windows. Do not render the board and log as artificial regions within a single buffer, and do not implement a custom graphical surface for their layout.
+- **Multiple game frames:** each game frame has its own window layout and board-window association. Different frames may display different boards belonging to the same world while sharing the same session log buffer.
+- **Buffer identity:** the board buffer and log buffer remain independent buffers with their own buffer-local state, modes, and lifecycle. Closing or switching a board must not accidentally kill the shared session log while another game frame still uses it.
 
-For example, `boardgame-open-board` must let the user choose an existing board Org file or enter a name for a new board.
+The implementation may use additional windows for optional panels, such as the status area or hand display, but these must not compromise the separation between the board buffer and the session log buffer.
 
-The user should not have to remember absolute paths for ordinary world-internal operations.
+## 5. Board Buffer and Cursor Behavior
+### 5.1. Ordinary Emacs text buffer
+The board must be rendered in an ordinary Emacs text buffer using characters and appropriate text properties.
 
-Fuzzy completion may be used when available, but the package must remain usable without a particular fuzzy-finder package.
+It must not be implemented as a separate graphical surface that bypasses normal Emacs text-buffer behavior.
 
-### 4.4. Board creation
+The board buffer must use non-wrapping lines. Each character cell must correspond to a stable board coordinate, with the renderer preserving the mapping between text positions and board positions.
 
-A newly created board must contain valid metadata, dimensions, and an initialized felt map.
+The board may be larger than the visible window in both dimensions.
 
-The initial felt character must be configurable, with `.` as the default.
+### 5.2. Horizontal and vertical scrolling
+The board must not be scaled down merely to fit inside the frame.
 
-A newly created board must be associated with a persistent Org file so it can subsequently be saved and reopened.
+When the board exceeds the visible window, the user must navigate it using normal Emacs cursor movement and scrolling behavior.
+The cursor must remain visible while navigating. As it approaches the edges of the visible area, Emacs must scroll or recenter the view horizontally or vertically as appropriate, including moving the visible region left, right, up, or down.
 
-### 4.5. File operations and data safety
+The implementation should use native Emacs buffer and window mechanisms, with appropriate settings where needed to support horizontal scrolling in a non-wrapping buffer.
 
-The package must clearly distinguish between:
+The exact recentering distance may depend on ordinary Emacs scrolling settings. The essential requirement is that the cursor can travel across the entire board without wrapping lines, becoming inaccessible, or requiring the whole board to fit in the window.
 
-- Removing an object from a board.
-- Removing an object from a container.
-- Consolidating objects into a stack.
-- Deleting a container.
-- Deleting an independent object file.
-- Closing an unsaved board.
-- Deleting a saved board or world.
+The game must not replace native navigation with a custom camera or graphical panning system unless such a system is explicitly introduced as an optional feature.
 
-These operations must not be treated as interchangeable.
+### 5.3. Board and log text behavior
+The board and the log have different display requirements:
+- **Board:** lines must not wrap. A long row extends horizontally and may require horizontal scrolling.
+- **Side log:** messages must wrap naturally onto additional lines to remain readable within the narrower log window.
 
-Destructive operations must provide appropriate confirmation and must not silently delete unrelated resources.
+Scrolling the board must not scroll the log, and scrolling the log must not move the board cursor.
 
-The world should use Git for version history when version-control integration is enabled. After a successful save, the package should commit the resulting world state. Git provides rollback and recovery, but it does not replace correct file writing and error handling.
+New log messages should cause the log to follow the latest entry, while users remain able to scroll manually through older messages.
 
-## 5. Board Operations
+### 5.4. Rendering updates
+The renderer should update only changed cells whenever practical.
 
-### 5.1. Opening and saving boards
+Moving an object should normally update its former position and its destination, not redraw the entire board.
 
-The following public commands are required:
+Drawing operations should likewise update affected cells instead of rebuilding the complete buffer after every stroke.
+
+The renderer must keep the displayed text and colors consistent with the in-memory board state.
+
+## 6. Board Files and Board Operations
+### 6.1. Opening and creating boards
+The package must provide commands for:
+- Opening an existing board.
+- Creating a new board.
+- Opening or creating a board in the current game frame.
+- Opening or displaying a board in another game frame.
+- Switching the active board.
+- Saving a board.
+- Saving a board under another file name.
+- Closing a board.
+
+The proposed public command names are:
 
 | Command | Behavior |
 |---|---|
 | `boardgame-open-board` | Select an existing board or offer to create one. |
-| `boardgame-create-board` | Create a new board after requesting its name and necessary initial settings. |
-| `boardgame-save-board` | Save the current in-memory board state to its associated Org file. |
-| `boardgame-save-board-as` | Save the board to a newly selected file without silently replacing another board. |
-| `boardgame-close-board` | Close the current board after handling unsaved changes. |
-| `boardgame-refresh-board` | Refresh the rendered representation from the current game state. |
+| `boardgame-create-board` | Create a board after requesting its name and initial settings. |
+| `boardgame-open-board-other-frame` | Open or display a board in another game frame. |
+| `boardgame-switch-board` | Switch the current game frame to another board. |
+| `boardgame-save-board` | Save the current in-memory state to its associated Org file. |
+| `boardgame-save-board-as` | Save the board to a newly selected file. |
+| `boardgame-close-board` | Close a board after handling unsaved changes. |
+| `boardgame-refresh-board` | Refresh the board's rendered representation from its current state. |
 
-These names are proposed public API names. Additional commands may be added where necessary.
+The exact public command names may be refined during implementation, but the operations must be available and documented.
 
-The Org board file is the serialized representation of the board, not necessarily the live in-memory model.
+### 6.2. File selection and creation
+Commands that require an Org file must provide a file-selection workflow.
 
-When loading, the file is the source of truth. When saving, the in-memory game model is the source of truth.
+Opening another board must offer the user a choice of existing board Org files and a way to enter the name of a new board.
+If a requested board file does not exist, the package must offer to create it.
+The same principle applies to objects, hands, and other resources when creation is valid for the requested operation.
+The package must not silently overwrite an existing board or create arbitrary files outside the intended world directory.
 
-Loading and saving must preserve equivalent gameplay semantics, including dimensions, felt contents, object placement, and relevant object ordering or layering information.
+### 6.3. Board serialization
+The board Org file is the persistent serialization format, not necessarily the live game model.
 
-### 5.2. Board representation and dimensions
+When loading, the Org file is the source of truth for reconstructing the board's initial in-memory state.
+When saving, the current in-memory model is the source of truth for writing the board file.
 
-A board is a rectangular map of character cells.
+The file must preserve the information needed to reconstruct equivalent game semantics, including dimensions, felt contents, object placements, relevant object ordering or layering, and supported cell appearance.
+The board Org file must remain manually editable.
 
-Its Org file must store its dimensions and contain a `felt` section with a source block holding the character map.
+### 6.4. Board dimensions and felt initialization
+A board must have explicit dimensions and a `felt` section containing a source block with the character map.
 
 When loading a board:
+- If declared dimensions exceed the stored map, pad missing cells with the configured default felt character, initially `.`.
+- If stored content exceeds declared dimensions, ignore characters outside those dimensions.
+- The resulting board must conform to its declared dimensions.
 
-- If the declared dimensions exceed the dimensions of the stored map, missing cells must be padded with the configured default character, initially `.`.
-- If the stored map contains characters outside the declared dimensions, those extra characters must be ignored.
-- The resulting board must conform to the declared dimensions.
+A newly created board must contain valid metadata, dimensions, and an initialized felt map.
 
-The serialization format must remain readable and manually editable in Org mode.
+### 6.5. Adding and removing objects
+The board must provide explicit commands for adding and removing objects.
 
-### 5.3. Felt layer
+Adding an object must allow the user to select from matching object Org documents in the active world. Fuzzy completion may be used when available.
 
-The felt layer is the underlying board surface.
+If the requested object document does not exist, the package should offer to create it.
 
-It supports arbitrary text characters, including spaces. Where supported by the rendering model, individual felt cells may also have foreground and background colors.
+Removing an object from the board must not automatically delete its independent Org file.
 
-Objects are rendered above the felt. If an object moves or is removed, the previously occupied cell must reveal the underlying felt character and its associated appearance.
+If multiple objects occupy the same cell, a command targeting one object must make the target unambiguous. Separate commands may intentionally affect all objects at that location.
 
-The felt must not be destroyed or replaced merely because an object temporarily covers it.
+### 6.6. Objects occupying the same cell
+Multiple objects may occupy one coordinate.
 
-### 5.4. Object placement and overlapping
+The implementation may choose the internal representation and rendering order, provided that the behavior is consistent and serialized sufficiently to reconstruct the intended game state.
 
-Multiple objects may occupy the same coordinates.
+Only the topmost visible glyph should be rendered.
 
-The implementation decides how to represent object collections and determine the rendering order, provided that the chosen semantics are consistent and serializable.
+Where possible, a count marker should appear immediately to the left of the cell:
+- `1` through `9` for counts in that range.
+- `+` for counts greater than 9.
 
-Only the topmost visible object glyph should be rendered at a cell. The underlying objects remain part of the game state and must remain accessible through object-selection and inspection commands.
+Omit the marker if it would collide with another object, cross the board boundary, or otherwise render incorrectly.
 
-Where possible, a count marker should appear immediately to the left of a cell containing multiple objects:
+The marker must not constrain the internal representation of object collections.
 
-- Counts from 1 through 9 may be represented by a digit.
-- Counts greater than 9 may be represented by `+`.
-- The marker must be omitted if it would collide with another object, cross the board boundary, or otherwise be rendered incorrectly.
+When an object moves or is removed, the previous cell must reveal the underlying felt and any remaining objects.
 
-This marker is a visual convenience, not a restriction on how objects are stored.
+## 7. Object Documents and Object Commands
+### 7.1. Object representation
+Each independent object is represented by an Org document containing a heading named after the object.
 
-Commands must provide a way to select an individual object when several objects occupy the same cell. Commands explicitly intended to affect all objects at that location may process them together.
+The document may contain:
+- Required object properties.
+- Object type and deck/container membership.
+- Visual glyph.
+- Foreground and background colors.
+- A description block.
+- Executable source blocks.
+- Additional properties and descriptive content.
 
-### 5.5. Adding and removing objects
+An object file is created on demand. The package must not create a separate object document automatically for every character in the felt.
 
-The board must support explicit commands for adding and removing objects.
+If a character is associated with an object that has no Org document, the package should offer to create the document when the user requests to open or define it.
 
-Adding an object should offer a list of matching object Org documents in the active world, using completion or fuzzy selection when available.
-
-If no matching object document exists, the package should offer to create one.
-
-Deleting an object from the board removes its board placement; it must not automatically delete its independent Org document.
-
-If multiple objects occupy the current cell, the deletion command must make the target unambiguous. A separate operation may explicitly remove all objects from the cell.
-
-### 5.6. Rendering updates
-
-The renderer should update only the cells affected by a change whenever practical.
-
-For example, moving an object should update its previous cell and its new cell instead of redrawing the entire board.
-
-The implementation must keep the rendered buffer consistent with the game state while avoiding unnecessary full-board rendering after every action.
-
-## 6. Object Documents and Object Commands
-
-### 6.1. Object identity
-
-Each independent game object is represented by an Org document containing a heading named after the object.
-
-An object may have a visual glyph, foreground and background colors, properties, a description, and executable source blocks.
-
-An object file is created on demand. The package must not create a separate Org file automatically for every character appearing on the board.
-
-A character may correspond to a named Org object even when no object document currently exists. When the user requests to open or define such an object, the package should offer to create its document.
+Each object must have a properties drawer containing at least the required type and deck/container membership information. An unspecified value must be represented explicitly, using a documented default such as `unspecified`.
 
 Objects consolidated into a stack may be represented as sections of a combined Org document rather than retaining their former standalone files.
 
-### 6.2. Required properties
-
-Every object must have a properties drawer containing at least the properties required to identify its type and its deck or container membership.
-
-If a deck or membership value has not been assigned, the document must use an explicit default such as `unspecified` rather than relying on an absent field to convey an undocumented meaning.
-
-The exact property names should be documented and consistently used.
-
-Additional standard or custom properties may be defined by the user.
-
-### 6.3. Object commands
-
-The package must provide commands for the following operations:
-
+### 7.2. Object commands
+The package must provide commands for:
 | Command | Behavior |
 |---|---|
 | `boardgame-open-object` | Open the Org document associated with the object under the cursor. |
-| `boardgame-create-object` | Create a new object document with an initial heading and required properties. |
+| `boardgame-create-object` | Create a new object document with its initial heading and required properties. |
 | `boardgame-add-object` | Select an object and place it on the board. |
-| `boardgame-delete-object` | Remove a selected object from the board. |
-| `boardgame-find-object` | Find objects by a property or other supported criteria. |
-| `boardgame-describe-object` | Show information about objects at the current coordinates. |
-| `boardgame-describe-object-extended` | Show the same information and attempt to evaluate the object's description block. |
+| `boardgame-delete-object` | Remove an object from the board. |
+| `boardgame-find-object` | Find an object by property or other supported criteria. |
+| `boardgame-describe-object` | Display object and felt information for the current coordinates. |
+| `boardgame-describe-object-extended` | Display object information and attempt to execute its description block. |
 | `boardgame-query-object-property` | Query a standard or custom property. |
-| `boardgame-execute-object-block` | Execute a source block associated with the selected object. |
+| `boardgame-execute-object-block` | Execute a source block belonging to the selected object. |
+| `boardgame-execute-board-block` | Execute a source block associated with the active board. |
 
-If an object document is missing, opening it must offer to create it when appropriate.
+Missing properties and optional source blocks must produce clear messages rather than unhandled errors.
 
-If a property or optional source block is missing, the command must report that condition clearly rather than raising an unhandled error.
-
-### 6.4. Object inspection
-
-The standard description command must report:
-
+### 7.3. Object inspection
+The standard description command must display:
 - The name and symbol of every object at the cursor coordinates.
-- The name and symbol of a relevant container, if present.
+- The relevant container's name and symbol, if present.
 - The underlying felt symbol.
 
-If several objects occupy the cell, each must be represented in the description.
+If multiple objects occupy the cell, the command must describe each of them.
 
-The extended description command must also attempt to execute the object's description block.
+The extended description command must also attempt to execute the object's description block. If the block is missing, the log must report a clear message such as `Description not found`.
 
-If no description block exists, the side log must display a clear message such as `Description not found`. The missing block must not crash the game.
+### 7.4. Source-block execution
+Objects and boards may contain executable source blocks.
 
-### 6.5. Source-block execution
+The user must be able to execute the appropriate block explicitly. The command must identify its target and report missing blocks or execution failures without leaving the board interface in an inconsistent state.
 
-Objects may contain named executable source blocks.
+## 8. Drawing Mode
+Drawing is a dedicated feature. It must not be reduced to object-placement commands or described merely as a choice of drawing character.
 
-The user must be able to execute a source block belonging to the object under the cursor. The board itself must also support an executable source block.
+It must provide ZZT-style character editing of the felt, including character selection, foreground and background colors, pipette sampling, continuous strokes, point-by-point painting, recent-symbol selection, and region-based operations.
 
-Execution commands must clearly identify the relevant object or board. Missing blocks and execution failures must be handled with informative errors rather than leaving the game interface in an inconsistent state.
+### 8.1. Activating drawing mode
+Drawing mode must be a separate minor mode or equivalent clearly scoped mode that the user can enable and disable explicitly.
 
-## 7. Drawing Mode
+Drawing mode operates on the felt layer, not the object layer.
 
-Drawing is a dedicated feature and must be implemented as a separate minor mode or equivalent clearly scoped mode. It must not be reduced to ordinary object-placement commands.
+When drawing mode is enabled, objects must be temporarily hidden as needed to expose the felt. Hiding them must not delete, move, or otherwise alter their state.
 
-The goal is to provide convenient character-based board editing at approximately the level of classic ZZT-style drawing, including glyph selection, colors, pipette sampling, continuous painting, and point-by-point editing.
-
-### 7.1. Entering and leaving drawing mode
-
-The user must be able to enable and disable drawing mode explicitly.
-
-Drawing mode operates on the felt layer, not on the object layer.
-
-When drawing mode is enabled, objects must be temporarily hidden as necessary to expose the underlying felt. Hiding objects for drawing must not delete, move, or otherwise alter them.
-
-When drawing mode is disabled, objects must be rendered again over the edited felt.
+When drawing mode is disabled, the objects must be rendered again over the edited felt.
 
 Drawing must not inadvertently modify object positions or object documents.
 
-### 7.2. Evil-mode compatibility
+### 8.2. Movement and Evil integration
+The package must not require Evil.
 
-Drawing mode must work without requiring Evil to be installed.
+When Evil is available:
+- Normal-state cursor movement must remain ordinary navigation.
+- Insert-state movement may paint continuously when drawing mode is enabled.
+- Normal-state movement must not automatically become painting merely because drawing mode is enabled.
+- Explicit drawing commands may be bound in normal state without changing the semantics of ordinary navigation.
+- Disabling drawing mode must restore the expected editing behavior.
 
-If Evil is available:
+The package must not force the user into insert state simply because drawing mode is enabled.
 
-- Normal-state cursor movement must continue to behave as normal navigation.
-- Drawing must not globally replace or disable ordinary Evil normal-mode movement.
-- In insert state, movement may paint along the path when drawing mode is enabled.
-- Normal-state movement should remain navigation unless the user explicitly invokes a drawing operation bound for that state.
-- Leaving drawing mode must restore the ordinary movement behavior expected by the user's configuration.
+When Evil is unavailable, the package must provide usable Emacs-native drawing commands and bindings.
 
-The implementation must not force the user into insert state or another Evil state merely because drawing mode is enabled.
+### 8.3. Character selection
+The user must be able to select the character used to paint the felt, including spaces.
 
-Where Evil is absent, the package must provide usable Emacs-native commands and bindings for drawing.
+The drawing interface must provide a recent-symbol menu.
 
-### 7.3. Selecting the drawing character
+Recent symbols must be ordered by recency, with the most recently used symbol first, except that the currently active symbol should not appear redundantly as another recent choice.
 
-The user must be able to select a character used for painting the felt.
+Choosing a recent symbol must change the active drawing character without modifying the board.
 
-The selected character may be any supported character, including spaces.
+### 8.4. Foreground and background colors
+The user must be able to select foreground and background colors independently.
 
-The drawing interface must provide a convenient way to select a symbol from a list of recently used symbols.
+Changing a color must not require changing the active character.
 
-The recent-symbol list must be ordered by recency, with the most recently used symbols appearing first, except that the currently active symbol should not be redundantly presented as another recent choice.
+The current drawing character and colors should be visible in the status area or another suitable interface element.
 
-Selecting a symbol must update the active drawing character without changing existing board cells.
+Color selection applies to subsequent painting. It must not recolor unrelated cells unless a bulk operation explicitly requests that behavior.
 
-### 7.4. Foreground and background colors
+The implementation may choose its color representation, provided that supported colors can be preserved in the board's serialized data.
 
-The user must be able to select the foreground and background colors used when painting.
+### 8.5. Continuous painting
+Drawing mode must support painting continuously as the cursor moves through cells in the applicable drawing interaction.
 
-Color selection must be independent of character selection: the user may change a color without changing the active glyph.
+When continuous painting is enabled, traversed cells must receive the active character and colors.
 
-The drawing interface must expose the currently selected character and colors through its status display or another suitable visual indicator.
+Continuous painting must be restricted to the intended drawing interaction. Ordinary navigation outside drawing mode must remain unaffected.
 
-Color changes must apply to subsequent painting operations and must not recolor unrelated cells unless the user explicitly requests a bulk operation.
+### 8.6. Point-by-point painting
+The user must also be able to paint an individual cell explicitly.
 
-The available color representation and rendering mechanism may be chosen by the implementation, provided that saved board data can preserve the supported appearance.
+Point painting must not require the cursor to travel through intermediate cells.
 
-### 7.5. Continuous and point-by-point painting
+Both continuous and point-by-point operations must replace the existing felt character at the target cell, including when the selected character is a space.
 
-Drawing mode must support both:
+Painting changes the felt; it does not create a game object.
 
-- **Continuous painting:** moving through cells in the applicable drawing interaction paints the traversed cells with the selected character and colors.
-- **Point-by-point painting:** the user explicitly paints individual cells without requiring a continuous stroke.
+### 8.7. Pipette
+The pipette must sample the underlying felt cell at the selected coordinates.
 
-When continuous painting is active, the drawing behavior must respect the user's editing state and must not interfere with ordinary navigation when drawing is inactive.
-
-Painting replaces the existing felt character at the targeted cell. It does not create a game object.
-
-Painting with a space must be supported so the user can erase characters from the felt.
-
-### 7.6. Pipette
-
-The drawing mode must provide a pipette operation that samples the felt at a selected cell.
-
-The pipette must retrieve the existing felt character and, where available, its foreground and background colors.
+It must retrieve the existing character and, where available, its foreground and background colors.
 
 The sampled values become the active drawing settings. Sampling must not modify the sampled cell.
 
-If an object is covering the cell, the pipette must sample the underlying felt rather than the object's visible glyph.
+### 8.8. Painting a selected region
+The user must be able to select a region and apply drawing operations to its cells.
 
-### 7.7. Drawing over selected regions
+Supported operations must include replacing felt characters and applying the active drawing character and colors.
 
-The user must be able to select a region of the board and apply a drawing operation to the selected cells.
+If objects occupy cells in the selected region, region-based drawing must affect the felt layer only. It must not delete, move, or edit those objects.
 
-Supported region operations should include replacing felt characters and applying the active drawing character and colors.
+The package should support ordinary Emacs region selection and Evil visual selection where practical. It must not globally replace the selection behavior provided by Emacs or Evil.
 
-Where the selection contains objects, drawing operations must affect the felt layer only. They must not delete or move objects.
+### 8.9. Text Mode (Overwrite Mode)
+Text Mode is a drawing submode that provides standard text-editor-style character replacement directly on the board's felt.
+#### Activation and Lifecycle
+- Text Mode can be activated while Drawing Mode is enabled.
+- It remains active until the user switches to another drawing submode or disables Drawing Mode.
+- Switching to another drawing submode must not modify the board beyond the changes already made.
+- Disabling Drawing Mode restores the normal board interaction and object rendering.
 
-The implementation should support the user's ordinary Emacs or Evil selection workflow where practical. Evil visual selection must continue to behave normally; the package must not globally replace its semantics.
+#### Cursor Movement and Character Input
+Text Mode must behave consistently in both vanilla Emacs and Evil.
+- Cursor movement follows the active editing environment's normal navigation behavior.
+- In vanilla Emacs, normal cursor movement keys move the cursor, while printable character input replaces the character under the cursor.
+- In Evil, Normal state retains its standard navigation behavior. In Insert state, printable character input replaces the character under the cursor.
+- Text Mode must not globally override Emacs or Evil key bindings, force Evil state transitions, or require Evil to be installed.
+- The mode must use the appropriate input mechanism for the active editing environment so that the same character-replacement behavior is available in both vanilla Emacs and Evil.
 
-Commands that operate on a selection must clearly distinguish between applying a change to every felt cell in a region and applying an object operation to objects located in that region.
+#### Overwrite Semantics
+- Each printable character entered replaces the felt character at the current cursor position.
+- After a character is entered, the cursor advances one cell to the right, as in standard overwrite mode.
+- Character input must never insert new board columns or shift existing characters to the right.
+- The board dimensions remain unchanged.
+- Line breaks are not inserted into the board as ordinary text. Any vertical movement or line-boundary behavior must respect the fixed board dimensions.
+- Input at the rightmost board cell must follow a documented boundary policy and must never cause the board to expand accidentally.
 
-### 7.8. Drawing and the board renderer
+#### Drawing Colors
+- Each entered character is written to the felt using the currently selected drawing foreground and background colors.
+- The colors apply to each newly replaced cell independently of the previous character's colors.
+- Text Mode modifies the felt layer only. It must not replace, move, or delete objects occupying the same cell.
+- If objects are temporarily hidden while Drawing Mode is active, their underlying placements remain unchanged. When Drawing Mode is disabled, objects are rendered over the edited felt as usual.
 
-Drawing changes must be reflected promptly in the board buffer.
+#### Rendering and Persistence
+- Each character replacement updates the underlying felt model and the displayed board.
+- Only the affected cell should be redrawn where practical.
+- Changes must participate in the board's normal save and unsaved-change tracking.
+- Text Mode must preserve the board's fixed-width, non-wrapping layout and normal Emacs scrolling behavior.
 
-When drawing on a cell, the renderer should update that cell rather than unnecessarily rebuilding the entire board.
+### 8.10. Drawing and rendering
+Drawing must update the affected board cells promptly.
 
-Disabling drawing mode must restore object visibility without losing the changes made to the felt.
+The renderer should not rebuild the entire board after every painted character.
 
-The current drawing character, colors, and mode status should be visible in the optional status area or another configurable indicator.
+Leaving drawing mode must restore object visibility without losing changes to the felt.
 
-## 8. Hands and Cards
+The current drawing character, colors, and mode status should be available in the status display or another configurable indicator.
 
-Hands are independent Org files. The order of cards or objects in a hand is determined by the order of their headings.
+## 9. Hands: Org-Based Stacks
+### 9.1. Core Concept
 
-The package must support any number of hands, but only one active hand at a time.
+A hand is a regular Org file. It has no dedicated graphical representation in the game frame.
 
-A hand may belong to a player, an opponent, or another game participant. The exact ownership model may be configurable.
+Each top-level heading in the hand file represents one item held in the hand. The heading and its entire subtree constitute that item, including its properties, nested headings, source blocks, and other Org content.
 
-### 8.1. Hand visibility
+A hand is conceptually a stack with the following characteristics:
 
-A hand may operate in a visible or blind mode.
+- Items are ordered by their heading order in the Org file.
+- The first top-level heading is the top item.
+- Items are moved into and out of the hand as complete Org subtrees.
+- The hand does not interpret or execute an item's internal content merely because the item is added to the hand.
+- The hand does not have its own rendered board representation.
+- The hand is manipulated through commands and can be inspected by opening its Org file.
 
-In blind mode, operations must be possible without displaying or revealing the hand's contents. This is necessary for opponent hands and hidden information.
+There may be multiple hand files, but only one hand is active for a game session. The active hand is configurable and can be changed explicitly.
 
-Commands must distinguish between operations that manipulate a hand and operations that reveal its contents.
+### 9.2. Opening and Inspecting a Hand
 
-The UI must not expose hidden card names or contents through an incidental display, list, or log message when a blind operation is requested.
+Provide a command to open the active hand's Org file in a regular Emacs buffer.
 
-### 8.2. Hand display and selection
+The user can inspect and edit the file using normal Org-mode functionality. There is no separate hand viewer, card renderer, or mandatory hand window.
 
-The user must be able to inspect or select cards from the active hand when the hand is visible.
+The package must not require the hand file to remain open while the game is running. Commands that manipulate the active hand must work whether its buffer is already open or needs to be opened.
 
-The implementation may use a separate window, a bottom panel, the existing information pane, or another suitable interface. The exact layout is not fixed.
+The package must preserve the order of items and the complete content of each item when saving and loading the hand.
 
-The interface should show useful contextual information about the active hand and its selected card where appropriate.
+### 9.3. Commands Available in Org Buffers
 
-Switching the active hand must not silently change the contents or ordering of other hands.
+Commands for transferring items must be available in ordinary Org buffers, not only in the game frame or active hand.
 
-### 8.3. Hand commands
+When a command operates on an Org heading, the current Org heading identifies the item to operate on. The command must determine the relevant subtree and preserve it as a complete unit.
 
-The package must provide distinct commands for:
+For example, the command to place an item on the board can be invoked:
 
-- Opening or creating a hand Org file.
-- Switching the active hand.
-- Adding an object or card to a hand.
-- Selecting a card from a visible hand.
-- Playing the first card.
-- Playing the last card.
-- Playing a selected card.
-- Playing a random card.
-- Executing a source block from a card in the active hand.
-- Executing a source block from the first card by default.
-- Executing a source block from a card specified by an explicit index.
-- Performing supported operations on a blind hand without revealing its contents.
+- From the active hand's Org buffer.
+- From any other Org file containing the heading to be transferred.
+- From a game command menu or key binding when an appropriate source item is identified.
 
-When an operation selects a card by index, the indexing convention must be documented and applied consistently.
+The command's behavior must be consistent regardless of the source buffer.
 
-### 8.4. Playing a card onto the board
+Commands that require an active board must use the package's documented active-board resolution mechanism. If no valid target board exists, the command must report the problem and ask the user to select or open a board rather than silently choosing an unrelated board.
 
-A card may be played at the current board cursor position or another explicitly selected position.
+### 9.4. Placing an Org Heading on the Board
 
-If the destination cell is occupied by a permanent container, the card must be added to that container rather than placed visibly on the board.
-
-This rule applies to hand-to-board placement. It must not be confused with stack creation, which is an explicit document-consolidation operation.
-
-The implementation must define and document whether playing a card consumes it from the hand or copies it, according to the operation and game rules. It must not silently duplicate or discard a card when the behavior is ambiguous.
-
-## 9. Stacks and Permanent Containers
-
-Stacks and containers serve different purposes and must remain separate concepts.
-
-### 9.1. Stacks: explicit document consolidation
-
-A stack is created by an explicit command. It must not be created automatically merely because objects occupy the same cell.
-
-The stack-creation command must accept a list of object coordinates, defaulting to the object or objects under the current cursor when no explicit list is supplied.
+The command to place an item on the board transfers the current Org heading and its complete subtree into a new object Org file.
 
 The operation must:
 
+1. Identify the current heading and its complete subtree.
+2. Preserve the subtree's content and hierarchy.
+3. Create a standalone Org file containing that heading and subtree.
+4. Ensure that the resulting object has a usable display symbol.
+5. Register the new object in the active board's object layer at the cursor position.
+6. Remove the transferred subtree from the source Org file only after the destination object has been created and the transfer can be completed safely.
+7. Update the source and destination buffers and their unsaved-change state.
+
+The command must not leave two independently active copies of the same transferred item when the intended operation is a move.
+
+If the operation fails, the source content must not be silently lost. The implementation must report the failure and preserve enough state to recover the item.
+
+#### 4.1. Display Symbol
+
+An Org heading may not define a display symbol in its properties.
+
+When the transferred heading has no usable symbol, derive the symbol from the first character of the heading title, excluding the Org heading markers and heading-level whitespace.
+
+For example, a heading named `Dragon` can use `D` as its display symbol.
+
+If the heading title is empty or its first character cannot provide a usable display symbol, use a documented fallback symbol and report or otherwise expose that fallback to the user.
+
+An explicitly configured valid symbol takes precedence over the derived symbol.
+
+The derived symbol is the object's display glyph; it does not replace or rename the original heading.
+
+### 9.5. Taking an Ordinary Object from the Board
+
+Taking an ordinary object from the board transfers it into the active hand.
+
+The operation must:
+
+1. Identify the selected object at the cursor position.
+2. Read the object's Org file and identify its root heading and complete subtree.
+3. Insert that heading and subtree into the active hand as one top-level item.
+4. Remove the object's placement from the board.
+5. Remove the standalone object file only after its content has been transferred successfully and no remaining references or placements require that file.
+6. Preserve the relative order of existing hand items and place the newly acquired item at the top of the hand.
+
+The operation must preserve the object's complete Org content, including properties, nested headings, source blocks, and descriptions.
+
+If multiple ordinary objects occupy the same board cell, the command must identify which object is being taken according to the package's documented object-selection behavior. It must not accidentally take every object at that position.
+
+### 9.6. The Hand as a Simple Stack
+
+The hand does not automatically unpack, interpret, merge, or transform an item's internal content.
+
+Each heading is one item, regardless of whether its subtree contains a simple object description, many nested headings, executable source blocks, or other structured Org data.
+
+The default operations are:
+
+- **Take:** transfer an item into the active hand.
+- **Place on board:** transfer the current heading from an Org file to the board as a standalone object.
+- **Open active hand:** open the active hand's Org file.
+- **Select active hand:** choose which hand file receives and supplies items.
+
+The package may provide additional commands, but they must not undermine the rule that a hand item is represented by one complete Org subtree.
+
+### 9.7. Containers and Stacks
+
+Containers and stacks are special board objects. They cannot be transferred into a hand as containers or stacks.
+
+The command to take an item while the cursor is over a container or stack has different semantics from taking an ordinary object.
+
+Instead of transferring the container or stack itself, the command takes the top item contained within it.
+
+The operation must:
+
+1. Identify the container or stack at the cursor position.
+2. Select its top item according to the ordering rules defined for that container or stack.
+3. Transfer that item's complete Org content into the active hand as a top-level heading.
+4. Remove the item from the container or stack's contents.
+5. Leave the container or stack itself on the board.
+
+For a permanent container, this removes the item reference from the container without deleting the item's standalone Org file unless the container's storage model explicitly requires a safe transfer of the item's content.
+
+For a stack, this extracts the top item from the stack's combined Org representation. The implementation must preserve the extracted item's complete content and correctly update the remaining stack.
+
+If the container or stack is empty, the command must report that there is no item to take. It must not remove the container or stack.
+
+The container/stack command must never transfer the container or stack itself into the hand.
+
+### 9.8. Command Availability and Context
+
+The same transfer operations must be accessible from the game interface and relevant Org buffers.
+
+The package must distinguish between:
+
+- The current Org heading, which identifies a source item.
+- The active hand, which is the destination for a take operation.
+- The active board, which is the destination for a place-on-board operation.
+- The container or stack under the board cursor, which supplies its top item when taking from a container or stack.
+
+A command must not assume that the current Org buffer is the active hand. An arbitrary Org heading can be transferred to the board without first copying it into the hand.
+
+Likewise, a command to take an item from the board always targets the active hand, regardless of which Org buffer happens to be visible.
+
+### 9.9. Consistency and Error Handling
+
+All transfers must preserve the complete item subtree and prevent silent data loss.
+
+The implementation must account for:
+
+- Missing or invalid active-hand files.
+- Missing or invalid target boards.
+- Headings with no usable display symbol.
+- Empty containers and stacks.
+- Missing object files.
+- File creation or write failures.
+- Existing object references or placements.
+- Attempts to transfer a container or stack itself into the hand.
+- Attempts to transfer an item when its source cannot be identified unambiguously.
+
+The source item must not be deleted before its destination has been successfully established. Where a transfer spans multiple files, the implementation must define a safe write and cleanup order and report partial failures clearly.
+
+### 9.10. Acceptance Criteria
+
+1. The active hand is an ordinary Org file and has no mandatory graphical representation.
+2. Opening the active hand displays its actual Org content in a normal Emacs buffer.
+3. Each top-level heading in the hand represents one item.
+4. The user can invoke the place-on-board command from the active hand or any other Org buffer.
+5. Placing a heading creates a standalone object Org file containing the complete heading subtree.
+6. A missing display symbol is derived from the heading's first character, subject to a documented fallback.
+7. A successful placement removes the transferred subtree from the source Org file.
+8. Taking an ordinary board object transfers its complete Org content into the active hand and removes its board placement.
+9. A successful take removes the standalone object file only when doing so is safe and appropriate.
+10. Taking from a container or stack extracts its top item rather than transferring the container or stack.
+11. Containers and stacks cannot themselves be placed in the hand.
+12. Empty containers and stacks remain intact when a take operation is attempted.
+13. Failed transfers do not silently discard source content.
+14. Item ordering is preserved and updated consistently during transfers.
+15. The behavior is independent of whether the active hand's buffer is currently visible.
+## 10. Stacks and Containers
+
+### 10.1. Explicit stack creation
+
+A stack is an explicit consolidation operation. It must not be created automatically because several objects occupy the same cell.
+
+The stack command must accept a list of object coordinates, defaulting to the objects under the cursor when no explicit list is supplied.
+
+Stack creation must:
+
 1. Identify the selected objects and their Org content.
-2. Consolidate that content into one combined Org document.
-3. Remove the former independent object files after their content has been successfully consolidated.
-4. Remove the selected independent objects from the board.
-5. Represent the consolidated result as a single stack object at the designated stack location.
+2. Consolidate their content into a combined Org document.
+3. Successfully write the consolidated representation.
+4. Remove the former standalone object files after successful consolidation.
+5. Remove the selected individual placements from the board.
+6. Place one stack object at the designated stack location.
 
-The combined document must preserve the information needed to represent the consolidated objects and their relevant properties and content.
+The combined document must preserve the information needed to represent the consolidated objects and their relevant content and properties.
 
-Stack creation is fundamentally an Org-document transformation and a change in object representation. It is not merely a visual grouping.
+The implementation must not delete original object documents before the consolidated document has been successfully created.
 
-The implementation must avoid leaving the game in a state where the original documents have been deleted but the consolidated document was not successfully written.
+The lifecycle of a stack when its contents are later extracted, including whether a one-member stack dissolves automatically, must be explicitly documented by the implementation. It must not be confused with automatic stack creation.
 
-The lifecycle of a stack when individual members are later extracted, including whether a one-member stack dissolves automatically, must be explicitly documented by the implementation. It must not be confused with automatic stack creation.
-
-### 9.2. Permanent containers: organization without consolidation
+### 10.2. Permanent containers
 
 A permanent container is a persistent object represented by its own Org file.
 
-A container organizes references to objects. It must not merge the Org documents of those objects or delete their independent files merely because they enter the container.
+It organizes references to other objects without merging their Org documents or deleting their independent files.
 
-Placing an object on top of a permanent container must remove that object's visible placement from the board and add a reference to it in the container's contents.
+Placing an object on top of a permanent container must remove its visible board placement and add a reference to the container's contents.
 
 The object's independent Org file remains intact.
 
-A container may contain individual objects, stacks, or other containers. Nested containers must be supported.
+Containers may hold individual objects, stacks, or other containers. Nested containers must be supported.
 
-An empty permanent container remains on the board unless the user explicitly deletes it.
+An empty container remains on the board unless explicitly deleted.
 
-Containers must be capable of holding ordered contents, and their contents must remain associated with the correct object documents.
-
-### 9.3. Container-specific source blocks
-
-A container may define executable source blocks for deck or container operations, such as drawing or shuffling.
-
-The package must support executing a relevant container block through an explicit command or another documented interaction.
-
-Missing optional container blocks must be handled gracefully.
-
-### 9.4. Container commands
-
-The package must provide separate operations for:
-
-- Creating a permanent container.
-- Opening or inspecting a container.
-- Adding an object to a container.
-- Adding a card from the active hand to a container.
-- Drawing an object from a container to the active hand.
-- Drawing from the top.
-- Drawing from the bottom.
-- Drawing a random item.
-- Opening or revealing a card beside or above its deck.
-- Shuffling a deck or container.
-- Listing contents in random order unless another order is requested.
-- Laying out all contents on the board.
-- Executing a container's supported source blocks.
-- Refreshing object properties from their Org documents when the displayed or cached properties are stale.
-- Explicitly deleting a container.
-
-The package must distinguish container deletion from deleting the objects referenced by that container. Deleting a container must not silently delete its contents' independent files.
-
-### 9.5. Revealing and listing contents
-
-A command to reveal or list container contents must support a randomized order by default when no other order is requested.
-
-Where an operation supports a specified order, such as top-to-bottom or bottom-to-top, that order must be respected.
-
-For blind or hidden containers, revealing contents must be an explicit action rather than an accidental side effect of another operation.
-
-### 9.6. Laying out contents
-
-The user must be able to lay out all items from a container onto the board.
-
-Each item must occupy a previously free cell around the source container. The operation must not overwrite unrelated objects or silently place items on occupied cells.
-
-The implementation may choose a placement strategy, but it must handle insufficient free space with a clear message and a consistent result. It must not silently lose items that could not be placed.
-
-### 9.7. Containers holding stacks
-
-A permanent container may hold a stack as one item. The stack remains a consolidated document, while the container stores its reference.
-
-Adding a stack to a container must not automatically unpack or reconsolidate it.
-
-Container organization and stack consolidation are independent operations.
-
-## 10. Teleportation and Navigation
-
-The package must support teleporting to specified board coordinates.
-
-Teleportation must also be possible through markers placed on the board. Markers may be predefined in the board data or placed by the player through an appropriate command.
+### 10.3. Container commands
 
 The package must provide commands to:
 
-- Teleport to explicit coordinates.
-- Navigate to a selected teleport marker.
-- Create or place a teleport marker where supported.
-- Remove or edit a player-created marker where supported.
+- Create a permanent container.
+- Open or inspect a container.
+- Add an object to a container.
+- Add a card from the active hand to a container.
+- Draw an object from a container into the active hand.
+- Draw the top item.
+- Draw the bottom item.
+- Draw a random item.
+- Open or reveal a card beside or above its deck.
+- Shuffle a deck or container.
+- List contents in random order unless another order is requested.
+- Lay out all contents on the board.
+- Execute supported container source blocks.
+- Refresh object properties from Org files when cached or displayed properties are stale.
+- Explicitly delete a container.
 
-Teleportation must not alter the felt or remove objects from the destination cell. The behavior when the destination contains multiple objects must remain consistent with ordinary object selection.
+Deleting a container must not silently delete the independent files of its contents.
+
+### 10.4. Revealing and laying out contents
+
+A command to reveal or list container contents must use randomized order by default unless another order is requested.
+
+Operations that explicitly request top-to-bottom, bottom-to-top, or another supported ordering must respect that order.
+
+Laying out a container's contents must place each item into a previously free cell around the source container.
+
+The operation must not overwrite unrelated objects or silently lose items when there is insufficient space. It must report the limitation and leave any unplaced items available in the container.
+
+A container may hold a stack as a single item. Adding a stack to a container must not automatically unpack or reconsolidate it.
+
+### 10.5. Container source blocks
+
+A container may define executable source blocks for operations such as drawing or shuffling.
+
+The package must provide a documented way to execute the relevant block. Missing optional blocks must be handled gracefully.
+
+## 11. Teleportation
+
+The package must support teleportation to explicit board coordinates and to teleport markers.
+
+Markers may be predefined in board data or placed by the player.
+
+The user must be able to:
+
+- Teleport to specified coordinates.
+- Select and teleport to an existing marker.
+- Place a marker where supported.
+- Edit or remove a player-created marker where supported.
+
+Teleportation must not modify the felt or remove objects from the destination cell.
 
 Invalid coordinates or missing markers must produce a clear message without leaving the cursor in an undefined state.
 
-## 11. Side Log and Status Area
+## 12. Side Log and Status Area
 
-### 11.1. Side-log content
+### 12.1. Explicit logging
 
-The side log displays only messages explicitly sent through the game's logging interface.
+The side log must display only messages explicitly sent through the game's logging interface.
 
-Ordinary Emacs messages, warnings, and internal diagnostics must not be copied into the game log automatically.
+Ordinary Emacs messages, warnings, and internal diagnostics must not automatically be copied into the game log.
 
-The log may display object descriptions, command results, game events, selected properties, and other explicit gameplay messages.
+The log may contain gameplay events, object descriptions, command results, property information, and other explicit messages.
 
-It should support text, foreground/background color information, and relative-path image references where the implementation supports them.
+Where supported, log entries may contain foreground/background color information and images referenced by world-relative paths.
 
-### 11.2. Scrolling
+### 12.2. Scrolling and wrapping
 
-When a new message is sent, the log should scroll to show the newest message.
+Log messages must wrap naturally within the log window.
 
-The user must remain able to scroll manually using ordinary Emacs commands. Adding new messages must not disable manual navigation through older entries.
+When a new message is sent, the log should scroll to the newest entry. Users must still be able to scroll manually through older messages using ordinary Emacs commands.
 
-The board's scrolling must remain independent of the log's scrolling.
+Log scrolling must be independent of board scrolling.
 
-### 11.3. Persistence
+### 12.3. Shared log scope
 
-The default may be a temporary, unsaved log buffer.
+The default log is shared by all game frames associated with the same active world.
 
-Persistent logging may be provided as an option, using a separate Org file associated with the board. When enabled, the file should be loaded alongside the board and created if absent.
+Messages sent from any board or frame in that world must appear in the same log buffer.
 
-The choice between temporary and persistent logging remains a configurable design decision until finalized. The implementation must not silently imply that a temporary log is permanently saved.
+Switching boards within the world must not create a separate log by default.
 
-### 11.4. Status area
+The package may optionally support persistent logs stored in Org files. If per-board persistent logging is implemented, it must remain distinct from the shared session log and its behavior must be documented.
 
-The optional status area should display stable contextual information, such as:
+### 12.4. Status area
+
+The optional status area may show:
 
 - Active world and board.
 - Active hand.
-- Current object or selected object properties.
-- Relevant global variables or tokens.
-- Drawing mode status.
+- Selected object and relevant properties.
+- Global variables and tokens.
+- Drawing-mode state.
 - Active drawing character and colors.
 
-The status area must remain distinct from the side log's stream of gameplay messages.
+The status area must remain distinct from the stream of log messages.
 
-## 12. Keyboard Bindings and Command Access
+## 13. Commands and Keyboard Bindings
 
-All principal operations must be available through documented interactive commands, even when no optional menu package is installed.
+### 13.1. Interactive command availability
 
-### 12.1. Function keys and key sequences
+Every principal operation must be accessible through a documented interactive command, even when no optional menu package is installed.
+
+The public command reference must include commands for game startup, world selection, board management, object management, drawing, hands, stacks, containers, teleportation, and logging.
+
+The proposed command names in this document may be refined, but their functionality must be preserved and names must be consistent throughout the implementation, documentation, and tests.
+
+### 13.2. Function keys and sequential key chords
 
 The game keymap may use F1 through F12 for game commands.
 
-The package must support sequential key chords of up to three key presses. For example, pressing `F5` followed by `F1` is a two-key sequence.
+The package must support sequential key sequences of up to three key presses. For example, pressing `F5` followed by `F1` is a two-key sequence.
 
 These are sequential key sequences, not simultaneous physical key combinations.
 
-The key bindings must be configurable and documented. The implementation should avoid unnecessary conflicts with the user's existing keymaps and provide an appropriate way to customize or disable game-specific bindings.
+Bindings must be documented and configurable. The package should avoid unnecessary conflicts with the user's existing keymaps.
 
-### 12.2. Evil compatibility
+### 13.3. Evil compatibility
 
-The package must not globally override standard Evil normal-mode cursor movement.
+Standard Evil normal-mode movement must not be globally overridden.
 
-Normal state remains useful for navigation, inspecting objects, and invoking commands. Insert state may be used for continuous drawing when drawing mode is enabled.
+Normal state must remain suitable for navigation, object inspection, and command invocation. Insert-state movement may paint while drawing mode is active.
 
-The package must not require Evil and must remain usable with ordinary Emacs keymaps.
+The package must remain usable without Evil. Hydra may provide optional menus, but no essential operation may depend on it.
 
-### 12.3. Optional menus
+## 14. Error Handling and Unsaved Changes
 
-If Hydra is installed, it may be used to provide convenient grouped menus for board operations, object operations, drawing, hands, containers, and navigation.
+The package must handle missing or invalid resources, missing properties, absent source blocks, invalid coordinates, empty containers, invalid card indices, insufficient free board cells, and failed saves with clear messages.
 
-Hydra must remain optional. Its absence must not disable commands or make any essential feature inaccessible.
+A command must not silently delete unrelated objects or files, overwrite another board, or leave the game state inconsistent after a failed operation.
 
-## 13. Error Handling and Consistency
+Destructive operations must distinguish between removing a board placement, removing an item from a container, consolidating objects into a stack, and deleting persistent resources.
 
-All commands must handle common failure conditions gracefully.
+Unsaved board changes must be tracked independently for each board. Switching frames or changing the active-board variable must not silently discard another board's state.
 
-Examples include:
+When version-control integration is enabled, successful saves should be followed by a Git commit of the world state. Git provides rollback and recovery but does not replace correct file-writing and error handling.
 
-- A requested world, board, object, or hand file does not exist.
-- An Org document is malformed or unreadable.
-- A requested property or source block is missing.
-- A drawing operation targets an invalid coordinate.
-- A container has no items to draw.
-- A layout operation has insufficient free cells.
-- A requested card index is invalid.
-- A save operation fails.
-- A destructive operation would affect more objects than intended.
+## 15. Acceptance Criteria
 
-Errors must be communicated clearly through an appropriate Emacs message or game-log entry.
+The implementation is considered compliant with this interface specification when:
 
-The package must not silently lose objects, delete independent object files during ordinary container operations, or overwrite unrelated documents.
+1. The game can start with an explicit world directory.
+2. The game can use a configurable default world directory when no argument is supplied.
+3. If neither a usable argument nor a usable default is available, the user is offered a world-selection workflow.
+4. A missing requested world or board can be created through an appropriate prompt.
+5. Starting the game opens a dedicated game frame without replacing the user's existing editing frame.
+6. Multiple boards can be switched within one game frame.
+7. Different boards can be displayed in different game frames simultaneously.
+8. Frames displaying boards from the same world share the same world-level log buffer.
+9. A global active-board variable identifies the current implicit command target and is updated consistently.
+10. Board buffers behave as ordinary Emacs text buffers, with non-wrapping lines and usable horizontal and vertical scrolling.
+11. The cursor remains navigable across boards larger than the visible window, using Emacs-native scrolling and recentering behavior.
+12. Log text wraps naturally, independently of board scrolling.
+13. Boards can be created, opened, saved, saved under another name, and closed without silent loss of unsaved changes.
+14. Objects can be created, opened, inspected, queried, executed, added, and removed through documented commands.
+15. Drawing mode supports character selection, foreground/background colors, pipette sampling, continuous painting, point painting, recent symbols, and region operations.
+16. Drawing changes the felt without unintentionally modifying the object layer.
+17. Hands support ordering, active-hand switching, first/last/selected/random card operations, source-block execution, and blind operations.
+18. Permanent containers preserve independent object files, while explicit stack creation consolidates selected object documents.
+19. Container operations support drawing, shuffling, revealing, and laying out contents without silently losing items.
+20. Teleportation to coordinates and markers is supported.
+21. Game messages are written to the appropriate shared log without automatically importing ordinary Emacs messages.
+22. Evil and Hydra remain optional.
+23. Failure conditions are reported clearly, and operations avoid silent data loss.
+24. Module-level unit tests and project-wide integration tests verify the documented behavior.
 
-Stack consolidation must not remove the original documents until the consolidated representation has been successfully created.
-
-Git commits should be made after successful saves when version-control integration is enabled. Git history is a recovery mechanism, not a substitute for correct handling of failed writes.
-
-## 14. Proposed Public Command Reference
-
-The following list summarizes the command families that must be documented. It is not a restriction on additional commands.
-
-| Command family | Required operations |
-|---|---|
-| Game | Start, close, switch world |
-| World | Open, create, activate, switch |
-| Board | Open, create, save, save as, close, refresh |
-| Objects | Add, create, open, delete from board, find, describe, query properties, execute source blocks |
-| Drawing | Enable/disable, select glyph, select foreground/background colors, pipette, continuous paint, point paint, paint a selected region, select a recent glyph |
-| Hands | Open/create, switch active hand, add card, play first/last/selected/random card, execute a card's source block, perform blind operations |
-| Containers | Create, open, add, draw top/bottom/random, reveal, list, shuffle, lay out contents, execute container blocks, delete |
-| Stacks | Explicitly consolidate selected objects and manage the resulting stack |
-| Navigation | Teleport to coordinates, use teleport markers, create or edit markers |
-| Logging | Send explicit messages, optionally manage persistent logs |
-
-The final package documentation must list the actual command names and their key bindings. The names in this document are proposed canonical names and may be refined consistently during implementation.
-
-## 15. Implementation Freedom and Acceptance Criteria
-
-This document specifies required user-visible behavior, not a mandatory internal architecture.
-
-The implementation may choose its own in-memory data structures, rendering strategy, ordering representation, command-dispatch mechanism, and window-management helpers.
-
-However, it must satisfy these acceptance criteria:
-
-1. Starting the game opens a dedicated frame with a board and side log.
-2. The user can create or open a world and create, open, save, and close boards.
-3. Missing resources trigger an appropriate creation workflow instead of an unexplained failure.
-4. Board state can be serialized to and reconstructed from editable Org documents.
-5. Felt characters remain intact beneath objects and are restored when objects move or are removed.
-6. Multiple objects may occupy a cell, and individual objects remain accessible.
-7. Drawing mode supports character selection, colors, pipette sampling, continuous and point-by-point painting, and region operations without modifying the object layer.
-8. Hands support ordered cards, active-hand switching, selected and random card operations, and blind actions.
-9. Permanent containers organize references without merging or deleting independent object files.
-10. Stack creation is explicit and consolidates selected object documents into one representation.
-11. Teleportation, object inspection, property queries, and source-block execution are available through documented commands.
-12. Game logging is separate from ordinary Emacs messages.
-13. Evil remains optional, normal-mode movement is not globally overridden, and Hydra remains optional.
-14. Missing data, invalid operations, and failed saves are handled without silently losing game content.
-15. The implementation is covered by module-level unit tests and integration tests for complete gameplay workflows.
-
-The central principle is to keep the user-visible rules explicit while allowing the developer to choose a simple, readable, and efficient implementation.
+The guiding principle is to make user-visible behavior explicit and consistent while allowing the implementation to remain modular, readable, and free to choose suitable internal data structures.

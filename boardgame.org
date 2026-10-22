@@ -23,44 +23,72 @@
 :END:
 ** 
 * Kanban
-** done
-*** DONE возми фаил boardgame-org.md
-и используй его техническую спецификацию для создания на elisp for emacs пакета для emacs.
-и напиши пакета для emacs следуя этому файлу, в папке src.el, на elisp следуя спецификации указаной в файле.
-и сделай фаил readme.org c описанием и инструкций по использованию получившевося пакет. для вариант на тайп скрип сделай только отображения инструкции из файл readme.org и помести это в папку docs. посколь хостится документация будет из паки docs.
+** DONE done
+*** DONE рука описана слобо. Довай распишу.
+у руки нет отображаемого состояни! чтоб понять что вруке юзер просто открывает орг фаил. команды могут применятса как на борде для помешения обектов в текушую рука. так и внутри произвольного орг файле на активном разде. тоесть если команда было поместить на доску - то раздел будет изят из орга и помещён на доску как с содержаниеание нового орг файла с этим разделом. Но поскольку у таково раздела может не бывать символа для отображения в свойствах то он назначает на основе перво символа заглавия.
+рука это просто орг фаил. в котором обекты это разделы. рука посуте это стандартный стак. просто она не имеет физичеково отображения на борде.И ведёт себя тупо. Если это контейнер взять раздел указаный в верху обекта убарть его у контейнера пометситить как раздел в руку. если поместить из руки - сделать обект с этим разделом как орг фаил и поместить на стол под курсором. не разбираясь в деталях что там внутри раздела. если взять в руку обект со столя ведёт себя как стак (удалить обек - сделать раздел с го содержанием).
+контейнер\стаке не может быть помещён в руку. команда "взять" на контейнере-стаке помешает верхний обект в рукую.
+должна быть команда открыть орг активной руки. Но в любом орге можно выполнить команду поместить на стол.
+**** ## 9. Hands and Cards
+Hands are Org files. Their card order is defined by the order of their headings.
+The package must support any number of hands, with only one active hand at a time.
+A hand may belong to a player, an opponent, or another game participant.
+### 9.1. Visible and blind hands
+A hand may operate in visible or blind mode.
 
-*** CANCELED возми фаил boardgame-org.md
-и используй его техническую спецификацию для создания на elisp for emacs пакета для emacs.
-и напиши пакета для emacs следуя этому файлу, в папке src, на elisp следуя спецификации указаной в файле.
-и сделай фаил readme.org c описаниеv и инструкций по использованию получившевося пакет.
-*** DONE чего я невижу в документации
-так описания режима. что при запуске он должен открыть отдельный фрейм и как было указано в разделал разделить его на лог и на доску.
-также новерное нужно указть команды для доски сохранить доску и открыть доску.
-как и вообще команды указаных команд для обекстов. что доска должна иметь команды для удаления и добовления обектов. 
-что стоит отметить что запросы требуюние указания орг файлан например открыть ещё одну доску должны предлогать выбрать орг фаил и предлогать имя для создания новой доски.
-также стоит отметить что если указывается мир или доска, которых нет визически на диске, это означает что их нужно создать.
-*** DONE ну явно команды для рук и рисования это разные разделы.
-почему оно всё скинуто в один раздел?
-Тоесть концепция сделать дополнительный фаил для команд и поведения может бывать разумной мне нравится. Но только довай сделаем его не тльео специализированым но и сделаем полное описание, всё что  было в оригинальной начальной документации с которых мы начинали.
-да и раздел рисования практически не описан? Притом что в оригинальной документации он был прописана.
-и вообще пройдись по оригенальной документации и проверь что оттуда нужно добавить в новый фаил.
+Blind operations must be possible without displaying or revealing the hand's contents. This is required for opponent hands and hidden information.
+
+Commands that manipulate a blind hand must not accidentally expose card names or contents through selection lists, side-log messages, or other incidental displays.
+
+Revealing the contents must be a separate explicit operation.
+
+### 9.2. Hand display
+The implementation may use a separate window, bottom panel, existing information pane, or another suitable interface for hand contents.
+
+The exact layout is not fixed.
+
+Where appropriate, the interface should display the active hand, the selected card, and relevant contextual information.
+
+Switching the active hand must not silently alter other hands.
+
+### 9.3. Hand commands
+The package must provide commands to:
+
+- Open or create a hand Org file.
+- Switch the active hand.
+- Add a card or object to a hand.
+- Select a card from a visible hand.
+- Play the first card.
+- Play the last card.
+- Play a selected card.
+- Play a random card.
+- Execute a source block from the active card.
+- Execute a source block from the first card by default.
+- Execute a source block from a card specified by an explicit index.
+- Perform supported operations on a blind hand without revealing its contents.
+
+Card indexing must follow a documented and consistent convention.
+
+### 9.4. Playing cards onto the board
+A card may be played at the current cursor position or another explicitly selected position.
+
+If the destination cell contains a permanent container, playing the card must add it to that container instead of placing it visibly on the board.
+
+This is a specific hand-to-board behavior. It must not be confused with stack creation or automatic consolidation.
+
+Whether playing a card consumes it from the hand or copies it must be explicitly defined for each relevant operation. The implementation must not silently duplicate or discard a card when the operation's intended semantics are ambiguous.
+
 ** urgent 
 ** TODO in progress
-*** boardgame-org-interface.md
+*** WAITING boardgame-org-interface.md
 я добавил дополнительный фаил спецификации. описываюний поведение и интерфейс.
 довай перепишим пакет для того чтоб он отражал новые требования на указаные в новом файле спецификации. учитываю основной фаили спецификации boardgame-org.md.
-*** и раз мы разбиваем документацию на отдельный файлы.
-то довай в отдельный фаил вынесем требования к коду. поскольку они относятся к обоим файлам.
-*** какжет небыло в списке и нужно уточнить.
-за пуска игры возможен либо указание папки мира.
-либо использует переменую с указание на папку по умолчанию.
-или было и я незаметил?
-И также новерное стоит уточнить что каждый отельный борд может быть перключен как внутри активного игрового фрейма.
-так и бывать открыт в дургом игровом фрейме. Тоесть это один обший мир один и тотже лог(буфер лога). Но другой фрем с другим бордом.
-тоесть другой борд может бывать открыт в томеже фрейме или в другом фрейме. возможно стоит добавить глобальную переменную на всякий случай. Она поимде не нужна, но может бывать удобной. что когда окрывается новый борд или производится любое действи с бордом то в переменую помешается значение что этот борт активый в текуший момент. что позволит решить неопределность если открыто более одного фрема с разными бордами.
-
 ** dezine
 ** todo
+*** добавить раздел списка доп тестов?
+мы добавили много функций, стоит указать что мы хотим чтоб было тестировано?
+*** и раз мы разбиваем документацию на отдельный файлы.
+то довай в отдельный фаил вынесем требования к коду. поскольку они относятся к обоим файлам.
 ** backlog
 * RUN
 ** start
