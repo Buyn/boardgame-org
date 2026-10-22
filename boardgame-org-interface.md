@@ -677,134 +677,198 @@ The package must provide a documented way to execute the relevant block. Missing
 
 ## 11. Cursor Navigation and Navigation Markers
 ### 11.1. General-Purpose Cursor Navigation
+
 The package must provide a general-purpose command that moves the cursor to specified coordinates on a specified board.
 
-The command accepts:
-- `BOARD`: the target board's filename.
+The command accepts three parameters:
+
+- `BOARD`: the target board's filename, including its extension.
 - `X`: the target horizontal coordinate.
 - `Y`: the target vertical coordinate.
 
-The board filename is the sole identifier used to resolve a board within the active world. No separate board ID, UUID, or other identity mechanism is required.
+The board filename is the sole identifier used to resolve a board within the active world. No separate board ID, UUID, or alternative identity mechanism is required.
 
-When no board filename is provided, the command targets the active board according to the package's active-board resolution rules.
+When `BOARD` is omitted, the command targets the active board according to the package's active-board resolution rules.
 
 The command must:
-1. Resolve the target board using its filename within the active world's board directory.
+
+1. Resolve the target board by its filename within the active world's board directory.
 2. Verify that the board exists and can be opened.
 3. Validate the requested coordinates against the board dimensions.
 4. Display or activate the target board as necessary.
-5. Move the board cursor to the specified cell.
+5. Move the cursor to the specified cell.
 
-When the target board is already displayed in another game frame, the command must follow the documented board-navigation policy without unexpectedly replacing the board in an unrelated frame.
+If the target board is already displayed in another game frame, the command must follow the package's documented board-navigation policy without unexpectedly replacing the board in an unrelated frame.
 
-Invalid filenames, missing boards, and out-of-range coordinates must produce clear errors. The command must not silently navigate to a different board or an unintended position.
+Missing boards, invalid filenames, and out-of-range coordinates must produce clear errors. The command must never silently substitute a different board or move the cursor to an unintended location.
 
-This command is independent of navigation markers and can be invoked by any object source block or other package code.
+This command is independent of navigation markers. It can be invoked by any object source block or other package code that needs to navigate to a board position.
 
-### 11.2. Navigation Markers as Ordinary Objects
-A navigation marker is an ordinary object represented by an Org file. It has no dedicated object type or separate teleportation subsystem.
+### 11.2. Object Identity and Naming
 
-Its source block invokes the general-purpose cursor-navigation command using the destination values stored in the object's Org properties.
+A navigation marker is an ordinary object and follows the general object-document rules.
 
-Executing the source block moves the cursor to the marker's stored destination. The behavior is implemented entirely through the existing object and source-block mechanisms.
+Each object is represented by an Org file. Three distinct concepts must be kept separate:
 
-### 11.3. Create Navigation Marker Command
+- **Object filename:** the name of the Org file on disk.
+- **Object name:** the title of the object's first top-level Org heading.
+- **Display glyph:** the character used to render the object on the board.
+
+Unless explicitly stated otherwise, references to an object's name throughout this specification mean the title of its first top-level Org heading, not the filename.
+
+The first top-level heading is the object's root heading. Its entire subtree constitutes the object's document content.
+
+For example, an object file may contain:
+
+```org
+* Marker Dungeon.org (12, 8)
+:PROPERTIES:
+:OBJECT_TYPE: marker
+:GLYPH: ^
+:FOREGROUND: white
+:END:
+```
+
+In this example:
+
+- The object name is `Marker Dungeon.org (12, 8)`.
+- The object filename is the actual filename of the Org file, which may be derived from the object name using filesystem-safe naming rules.
+- The display glyph is `^`.
+
+The root heading title is the authoritative object name. Changing that title renames the object; renaming the file is a separate operation and must not be implied by changing the heading.
+
+### 11.3. Navigation Markers as Ordinary Objects
+
+A navigation marker is an ordinary object whose source block invokes the general-purpose cursor-navigation command.
+
+It does not require a dedicated object type in the engine, a special navigation data structure, or a separate teleportation subsystem.
+
+Its behavior is determined by its Org properties and source block. Executing the source block navigates to the destination stored in those properties.
+
+The marker's current position on the board and its stored destination are independent:
+
+- The current position determines where the marker is displayed.
+- The stored destination determines where the cursor moves when the marker's source block is executed.
+
+Moving the marker must not automatically change its destination properties.
+
+### 11.4. Create Navigation Marker Command
 The package must provide a dedicated command that creates a navigation marker at the current board cursor position.
-#### 3.1. Generated Object Name
-The generated object name must follow this format:
+#### 4.1. Generated Object Name
+
+The command generates the marker's root heading title using this format:
+
 `Marker (board filename) (x, y)`
 
-For example, a marker created at coordinates `(12, 8)` on `Dungeon.org` is named:
+For example, creating a marker at coordinates `(12, 8)` on `Dungeon.org` produces the object name:
+
 `Marker Dungeon.org (12, 8)`
 
-The filename of the board, including its extension, is the authoritative identifier used by the marker. The generated object filename must be filesystem-safe.
+The board filename, including its extension, is used in the object name. The coordinates identify the cell where the marker was created.
 
-If an object file with the generated filename already exists, the command must not overwrite it. It must choose a unique alternative or ask the user how to proceed.
+The generated title becomes the title of the first top-level Org heading in the new object file. It is not merely a filename or a separate metadata field.
 
-#### 3.2. Display Properties
+The object filename must be derived from the generated object name using filesystem-safe naming rules. If the resulting filename already exists, the command must not overwrite it. It must generate a unique alternative or ask the user how to proceed without changing the intended object name unnecessarily.
+
+#### 4.2. Display Properties
+
 The generated object must have these display properties:
+
 - **Glyph:** `^`
-- **Foreground:** white.
-- **Background:** unspecified.
+- **Foreground color:** white.
+- **Background color:** unspecified.
 
 An unspecified background allows the underlying felt background to remain visible.
 
-The marker is an ordinary object and can be moved, taken, placed in a hand, or transferred to another board using the same operations as other objects.
+The marker is an ordinary board object and can be moved, taken, placed in a hand, or transferred to another board using the same operations available to other objects.
 
-#### 3.3. Destination Properties
+#### 4.3. Destination Properties
+
 The generated Org file must store the original destination in explicit Org properties:
+
 - `DESTINATION_BOARD`: the destination board's filename, including its extension.
 - `DESTINATION_X`: the horizontal coordinate at creation time.
 - `DESTINATION_Y`: the vertical coordinate at creation time.
 
-The board filename must be resolved relative to the active world's board directory. The marker does not need to store an absolute filesystem path or a separate board identifier.
+The destination board filename is resolved relative to the active world's board directory. No separate board identifier or absolute path is required.
 
-These properties describe the marker's destination, not its current position. Moving the marker must never change them automatically.
+These properties describe the marker's destination, not its current position. They must remain unchanged when the marker is moved to another cell or another board.
 
-#### 3.4. Source Block
+#### 4.4. Source Block
 
 The generated object must contain a source block that reads the destination properties and invokes the general-purpose cursor-navigation command.
 
-The source block must not hardcode the destination filename or coordinates in its executable body. It must retrieve all three values from the object's Org properties and pass them to the navigation command.
+The source block must not hardcode the destination filename or coordinates in its executable body. It must retrieve the values from the object's Org properties and pass them to the navigation command.
 
-Conceptually, its behavior is:
+Its behavior is conceptually:
 
-1. Read `DESTINATION_BOARD`, `DESTINATION_X`, and `DESTINATION_Y`.
-2. Invoke the general-purpose cursor-navigation command with those values.
-3. Allow that command to resolve the board by filename, validate the coordinates, and move the cursor.
+1. Read `DESTINATION_BOARD` from the marker's Org properties.
+2. Read `DESTINATION_X` and `DESTINATION_Y` from the same properties.
+3. Invoke the general-purpose cursor-navigation command with these values.
+4. Let the navigation command resolve the board by filename, validate the coordinates, and move the cursor.
 
-This demonstrates how object behavior can be parameterized through Org properties rather than hardcoded into source code.
+This demonstrates that object behavior can be parameterized through Org properties rather than embedding configuration directly in source code.
 
-#### 3.5. Creation Behavior
+The source block must use the package's standard object-source execution mechanism. The package must not introduce a separate execution mechanism specifically for navigation markers.
 
-When the command is invoked, it must:
+#### 4.5. Creation Behavior
 
-1. Capture the current board's filename and the cursor coordinates.
-2. Generate the object name from that filename and those coordinates.
-3. Create the object's Org file with its heading, display properties, destination properties, and source block.
-4. Register the new object on the current board at the cursor position.
-5. Refresh the affected cell and update the board's unsaved-change state.
+When the user invokes the create-marker command, the package must:
 
-If creation or registration fails, the command must report the error and avoid silently leaving an orphaned object or overwriting an existing file.
+1. Identify the current board and obtain its filename.
+2. Capture the current cursor coordinates.
+3. Generate the marker's object name according to the naming rule above.
+4. Create a new Org file with the generated root heading, display properties, destination properties, and source block.
+5. Register the new object on the current board at the cursor position.
+6. Refresh the affected board cell and update the board's unsaved-change state.
 
-#### 3.6. Expected Behavior
+The command must not silently overwrite an existing object file. If file creation or board registration fails, it must report the failure and avoid silently leaving an orphaned object.
 
-1. The user positions the cursor at a desired cell.
+### 11.5. Expected Behavior
+
+The intended workflow is:
+
+1. The user positions the cursor at a desired cell on a board.
 2. The user invokes the create-marker command.
-3. A `^` object appears at that location.
-4. The marker records the current board's filename and coordinates in its properties.
-5. The user moves the marker to another location, including another board in the same world.
-6. The user executes the marker's source block.
-7. The cursor returns to the board identified by the stored filename and to the stored coordinates.
+3. The package creates a standalone Org file whose first top-level heading identifies the marker.
+4. A `^` glyph appears at the creation position, with a white foreground and unspecified background.
+5. The marker's properties record the original board filename and coordinates.
+6. The user moves the marker to another position, including a different board in the same world.
+7. The user executes the marker's source block using the standard object-source execution mechanism.
+8. The cursor returns to the board identified by `DESTINATION_BOARD` and to the coordinates stored in `DESTINATION_X` and `DESTINATION_Y`.
 
-The marker's current location determines where it is displayed. Its destination properties determine where its source block navigates.
+The marker does not need to remain at its original location to work. Its source block always uses the stored destination properties.
 
-### 11.4. Error Handling
+### 11.6. Error Handling
 
 The navigation command and marker source block must handle these conditions:
 
-- The destination filename is missing or invalid.
+- `DESTINATION_BOARD` is missing or invalid.
 - The destination board file no longer exists.
 - The destination coordinates are missing, invalid, or outside the board dimensions.
 - The destination board cannot be opened.
-- The marker's required properties or source block are missing.
+- Required marker properties or the source block are missing.
 - The marker cannot be created because of a file conflict or write failure.
+- The marker file is created but registration on the board fails.
 
-Errors must be reported clearly. The navigation command must never silently substitute another board.
+Errors must be reported clearly. Navigation must never silently substitute another board. Failed creation or registration must not silently discard the marker's content.
 
-### 11.5. Acceptance Criteria
+### 11.7. Acceptance Criteria
 
-1. The package provides a general-purpose command for navigating to coordinates on a specified board.
-2. A board is identified exclusively by its filename within the active world.
-3. The marker name includes the board filename and creation coordinates.
-4. The marker uses the `^` glyph, a white foreground, and an unspecified background.
-5. The destination filename and coordinates are stored in Org properties.
-6. The source block retrieves these properties instead of hardcoding destination values.
-7. Executing the source block invokes the general-purpose navigation command.
-8. Moving the marker does not alter its destination properties.
-9. The marker can navigate to its original location from another board in the same world.
-10. Missing boards and invalid coordinates produce clear errors.
-11. Creating a marker never silently overwrites an existing object file.
+1. The package provides a general-purpose command for moving the cursor to coordinates on a specified board.
+2. The command identifies boards exclusively by filename within the active world.
+3. A navigation marker is an ordinary object, not a dedicated engine entity.
+4. The marker's object name is the title of its first top-level Org heading.
+5. The generated object name contains the original board filename and creation coordinates.
+6. The marker uses the `^` glyph, a white foreground, and an unspecified background.
+7. The destination board filename and coordinates are stored in Org properties.
+8. The source block reads those properties instead of hardcoding the destination values.
+9. Executing the source block invokes the same general-purpose cursor-navigation command available to other objects.
+10. Moving the marker does not alter its destination properties.
+11. The marker can navigate to its original location from another board in the same world.
+12. Missing boards and invalid coordinates produce clear errors.
+13. Creating a marker never silently overwrites an existing object file.
+14. File creation and board registration failures are reported without
 
 ## 12. Side Log and Status Area
 
