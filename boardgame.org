@@ -99,13 +99,6 @@ The user must be able to:
 Teleportation must not modify the felt or remove objects from the destination cell.
 
 Invalid coordinates or missing markers must produce a clear message without leaving the cursor in an undefined state.
-** urgent 
-** TODO in progress
-*** WAITING boardgame-org-interface.md
-я добавил дополнительный фаил спецификации. описываюний поведение и интерфейс.
-довай перепишим пакет для того чтоб он отражал новые требования на указаные в новом файле спецификации. учитываю основной фаили спецификации boardgame-org.md.
-** dezine
-** todo
 *** DONE неплохо но я бы добавил еша наличие специально команды
 раз уж мы пошли описывать это. команда создать обект маркер.
 по этой команда в точке где находится курсор формируется новый оргфал обект с имене "маркер (имя доски) (координаты)" и символом `^` белого цвета без определёного фона.
@@ -161,7 +154,7 @@ The source block is responsible for passing the destination values to the naviga
 5. Executing the marker's source block moves the cursor to its configured destination.
 6. Invalid boards and coordinates produce clear errors without unintended navigation.
 7. All navigation uses the same general-purpose command, regardless of which object or source block invokes it.
-*** я неуверен на сколько чётко читает понятие имя маркера
+*** DONE я неуверен на сколько чётко читает понятие имя маркера
 тоесть это старндартный обект и имя значит первый раздел в этом обекте. Который и явлется именем.
 Это вроде очевидно. но нужно ли это прописать повторно?
 
@@ -298,10 +291,32 @@ Errors must be reported clearly. The navigation command must never silently subs
 11. Creating a marker never silently overwrites an existing object file.
 
 
+** urgent 
+** TODO in progress
+*** WAITING boardgame-org-interface.md
+я добавил дополнительный фаил спецификации. описываюний поведение и интерфейс.
+довай перепишим пакет для того чтоб он отражал новые требования на указаные в новом файле спецификации. учитываю основной фаили спецификации boardgame-org.md.
+** dezine
+** todo
 *** убедится что описаны обекты
 и что описана команда открыть орг обекта
+*** описаит систему именования создаваемых оргов
+что имя берётся либо от типа обекта + индификатор(изоформат времени и даты до микросекунд, если имакс умеет выдовать микросекунды/тики)+орг.
+либо имя это имя первого раздела(пацифированое стандартными механизмами имакса) + орг.
+хотя возможно это стоит добавить в архитектуру, а не поведение.
+
 *** добавить раздел списка доп тестов?
 мы добавили много функций, стоит указать что мы хотим чтоб было тестировано?
+*** указывали ли
+*** новерное стоит добавить примеров отображения разных обектов в орге.
+с обеснением и новерное добавить в архитектуру?
+как выглядит:
+***** обект
+***** стак
+***** Контейнер
+***** маркер
+***** рука
+***** доска
 *** и раз мы разбиваем документацию на отдельный файлы.
 то довай в отдельный фаил вынесем требования к коду. поскольку они относятся к обоим файлам.
 ** backlog
