@@ -441,13 +441,11 @@ The current drawing character, colors, and mode status should be available in th
 
 ## 9. Hands: Org-Based Stacks
 ### 9.1. Core Concept
-
 A hand is a regular Org file. It has no dedicated graphical representation in the game frame.
 
 Each top-level heading in the hand file represents one item held in the hand. The heading and its entire subtree constitute that item, including its properties, nested headings, source blocks, and other Org content.
 
 A hand is conceptually a stack with the following characteristics:
-
 - Items are ordered by their heading order in the Org file.
 - The first top-level heading is the top item.
 - Items are moved into and out of the hand as complete Org subtrees.
@@ -458,7 +456,6 @@ A hand is conceptually a stack with the following characteristics:
 There may be multiple hand files, but only one hand is active for a game session. The active hand is configurable and can be changed explicitly.
 
 ### 9.2. Opening and Inspecting a Hand
-
 Provide a command to open the active hand's Org file in a regular Emacs buffer.
 
 The user can inspect and edit the file using normal Org-mode functionality. There is no separate hand viewer, card renderer, or mandatory hand window.
@@ -468,13 +465,11 @@ The package must not require the hand file to remain open while the game is runn
 The package must preserve the order of items and the complete content of each item when saving and loading the hand.
 
 ### 9.3. Commands Available in Org Buffers
-
 Commands for transferring items must be available in ordinary Org buffers, not only in the game frame or active hand.
 
 When a command operates on an Org heading, the current Org heading identifies the item to operate on. The command must determine the relevant subtree and preserve it as a complete unit.
 
 For example, the command to place an item on the board can be invoked:
-
 - From the active hand's Org buffer.
 - From any other Org file containing the heading to be transferred.
 - From a game command menu or key binding when an appropriate source item is identified.
@@ -484,11 +479,9 @@ The command's behavior must be consistent regardless of the source buffer.
 Commands that require an active board must use the package's documented active-board resolution mechanism. If no valid target board exists, the command must report the problem and ask the user to select or open a board rather than silently choosing an unrelated board.
 
 ### 9.4. Placing an Org Heading on the Board
-
 The command to place an item on the board transfers the current Org heading and its complete subtree into a new object Org file.
 
 The operation must:
-
 1. Identify the current heading and its complete subtree.
 2. Preserve the subtree's content and hierarchy.
 3. Create a standalone Org file containing that heading and subtree.
@@ -502,25 +495,22 @@ The command must not leave two independently active copies of the same transferr
 If the operation fails, the source content must not be silently lost. The implementation must report the failure and preserve enough state to recover the item.
 
 #### 4.1. Display Symbol
-
 An Org heading may not define a display symbol in its properties.
 
 When the transferred heading has no usable symbol, derive the symbol from the first character of the heading title, excluding the Org heading markers and heading-level whitespace.
 
 For example, a heading named `Dragon` can use `D` as its display symbol.
 
-If the heading title is empty or its first character cannot provide a usable display symbol, use a documented fallback symbol and report or otherwise expose that fallback to the user.
+If the heading title is empty or its first character cannot provide a usable display symbol, use a fallback symbol `*` and report or otherwise expose that fallback to the user.
 
 An explicitly configured valid symbol takes precedence over the derived symbol.
 
 The derived symbol is the object's display glyph; it does not replace or rename the original heading.
 
 ### 9.5. Taking an Ordinary Object from the Board
-
 Taking an ordinary object from the board transfers it into the active hand.
 
 The operation must:
-
 1. Identify the selected object at the cursor position.
 2. Read the object's Org file and identify its root heading and complete subtree.
 3. Insert that heading and subtree into the active hand as one top-level item.
@@ -533,13 +523,11 @@ The operation must preserve the object's complete Org content, including propert
 If multiple ordinary objects occupy the same board cell, the command must identify which object is being taken according to the package's documented object-selection behavior. It must not accidentally take every object at that position.
 
 ### 9.6. The Hand as a Simple Stack
-
 The hand does not automatically unpack, interpret, merge, or transform an item's internal content.
 
 Each heading is one item, regardless of whether its subtree contains a simple object description, many nested headings, executable source blocks, or other structured Org data.
 
 The default operations are:
-
 - **Take:** transfer an item into the active hand.
 - **Place on board:** transfer the current heading from an Org file to the board as a standalone object.
 - **Open active hand:** open the active hand's Org file.
@@ -548,7 +536,6 @@ The default operations are:
 The package may provide additional commands, but they must not undermine the rule that a hand item is represented by one complete Org subtree.
 
 ### 9.7. Containers and Stacks
-
 Containers and stacks are special board objects. They cannot be transferred into a hand as containers or stacks.
 
 The command to take an item while the cursor is over a container or stack has different semantics from taking an ordinary object.
@@ -556,12 +543,13 @@ The command to take an item while the cursor is over a container or stack has di
 Instead of transferring the container or stack itself, the command takes the top item contained within it.
 
 The operation must:
-
 1. Identify the container or stack at the cursor position.
 2. Select its top item according to the ordering rules defined for that container or stack.
 3. Transfer that item's complete Org content into the active hand as a top-level heading.
 4. Remove the item from the container or stack's contents.
 5. Leave the container or stack itself on the board.
+
+For this purpose, specialized function of the containerrs themselves are used. The hand does not perform operations on containers, but requests objects from the container, using their standard commands.
 
 For a permanent container, this removes the item reference from the container without deleting the item's standalone Org file unless the container's storage model explicitly requires a safe transfer of the item's content.
 
@@ -572,11 +560,9 @@ If the container or stack is empty, the command must report that there is no ite
 The container/stack command must never transfer the container or stack itself into the hand.
 
 ### 9.8. Command Availability and Context
-
 The same transfer operations must be accessible from the game interface and relevant Org buffers.
 
 The package must distinguish between:
-
 - The current Org heading, which identifies a source item.
 - The active hand, which is the destination for a take operation.
 - The active board, which is the destination for a place-on-board operation.
@@ -587,11 +573,9 @@ A command must not assume that the current Org buffer is the active hand. An arb
 Likewise, a command to take an item from the board always targets the active hand, regardless of which Org buffer happens to be visible.
 
 ### 9.9. Consistency and Error Handling
-
 All transfers must preserve the complete item subtree and prevent silent data loss.
 
 The implementation must account for:
-
 - Missing or invalid active-hand files.
 - Missing or invalid target boards.
 - Headings with no usable display symbol.
@@ -605,7 +589,6 @@ The implementation must account for:
 The source item must not be deleted before its destination has been successfully established. Where a transfer spans multiple files, the implementation must define a safe write and cleanup order and report partial failures clearly.
 
 ### 9.10. Acceptance Criteria
-
 1. The active hand is an ordinary Org file and has no mandatory graphical representation.
 2. Opening the active hand displays its actual Org content in a normal Emacs buffer.
 3. Each top-level heading in the hand represents one item.
@@ -617,20 +600,17 @@ The source item must not be deleted before its destination has been successfully
 9. A successful take removes the standalone object file only when doing so is safe and appropriate.
 10. Taking from a container or stack extracts its top item rather than transferring the container or stack.
 11. Containers and stacks cannot themselves be placed in the hand.
-12. Empty containers and stacks remain intact when a take operation is attempted.
+12. Empty containers remain intact when a take operation is attempted.
 13. Failed transfers do not silently discard source content.
 14. Item ordering is preserved and updated consistently during transfers.
 15. The behavior is independent of whether the active hand's buffer is currently visible.
 ## 10. Stacks and Containers
-
 ### 10.1. Explicit stack creation
-
 A stack is an explicit consolidation operation. It must not be created automatically because several objects occupy the same cell.
 
 The stack command must accept a list of object coordinates, defaulting to the objects under the cursor when no explicit list is supplied.
 
 Stack creation must:
-
 1. Identify the selected objects and their Org content.
 2. Consolidate their content into a combined Org document.
 3. Successfully write the consolidated representation.
@@ -640,12 +620,13 @@ Stack creation must:
 
 The combined document must preserve the information needed to represent the consolidated objects and their relevant content and properties.
 
+The resulting object gets the `$` character as the default character to display, on a white background in black font color.
+
 The implementation must not delete original object documents before the consolidated document has been successfully created.
 
-The lifecycle of a stack when its contents are later extracted, including whether a one-member stack dissolves automatically, must be explicitly documented by the implementation. It must not be confused with automatic stack creation.
+The lifecycle of a stack when its contents are later extracted, including whether a one-member stack dissolves automatically, must be explicitly documented by the implementation.
 
 ### 10.2. Permanent containers
-
 A permanent container is a persistent object represented by its own Org file.
 
 It organizes references to other objects without merging their Org documents or deleting their independent files.
@@ -654,14 +635,12 @@ Placing an object on top of a permanent container must remove its visible board 
 
 The object's independent Org file remains intact.
 
-Containers may hold individual objects, stacks, or other containers. Nested containers must be supported.
+Containers may hold individual objects, stacks, or other containers.
 
 An empty container remains on the board unless explicitly deleted.
 
 ### 10.3. Container commands
-
 The package must provide commands to:
-
 - Create a permanent container.
 - Open or inspect a container.
 - Add an object to a container.
@@ -681,7 +660,6 @@ The package must provide commands to:
 Deleting a container must not silently delete the independent files of its contents.
 
 ### 10.4. Revealing and laying out contents
-
 A command to reveal or list container contents must use randomized order by default unless another order is requested.
 
 Operations that explicitly request top-to-bottom, bottom-to-top, or another supported ordering must respect that order.
@@ -693,27 +671,56 @@ The operation must not overwrite unrelated objects or silently lose items when t
 A container may hold a stack as a single item. Adding a stack to a container must not automatically unpack or reconsolidate it.
 
 ### 10.5. Container source blocks
-
 A container may define executable source blocks for operations such as drawing or shuffling.
 
 The package must provide a documented way to execute the relevant block. Missing optional blocks must be handled gracefully.
 
-## 11. Teleportation
+## 11. Cursor Navigation Between Boards
+### 11.1. General Principle
+The package must provide a command that moves the cursor to specified coordinates on a specified board.
 
-The package must support teleportation to explicit board coordinates and to teleport markers.
+This is a general-purpose navigation command. It must support both the currently active board and another board belonging to the active world.
 
-Markers may be predefined in board data or placed by the player.
+The command must accept:
+- Target board identification.
+- Target horizontal coordinate.
+- Target vertical coordinate.
 
-The user must be able to:
+When no board is explicitly specified, the command targets the active board according to the package's active-board resolution rules.
 
-- Teleport to specified coordinates.
-- Select and teleport to an existing marker.
-- Place a marker where supported.
-- Edit or remove a player-created marker where supported.
+The command must validate the target board and coordinates. If the target cannot be resolved or the coordinates are invalid, it must report the problem without silently moving the cursor to an unintended location.
 
-Teleportation must not modify the felt or remove objects from the destination cell.
+When targeting another board, the command must make that board accessible in the appropriate game frame or window and position its cursor at the requested coordinates. It must not unexpectedly replace the board displayed in an unrelated game frame.
 
-Invalid coordinates or missing markers must produce a clear message without leaving the cursor in an undefined state.
+### 11.2. Implementation Through Object Source Blocks
+A teleportation marker is an ordinary object represented by an Org file. It requires no special object type, dedicated data structure, or teleportation-specific command.
+
+Its Org properties specify the destination board and coordinates. Its source block invokes the general cursor-navigation command with those values.
+
+When the object's source block is executed, the cursor moves to the configured coordinates on the configured board.
+
+Thus, teleportation is simply a behavior implemented by an object's source code. The package must not introduce a separate teleportation subsystem.
+
+### 11.3. Execution and Validation
+The source block must use the standard object-source execution mechanism.
+
+The navigation command must:
+- Resolve the destination board.
+- Validate the requested coordinates against the board dimensions.
+- Display or activate the destination board as required by the navigation behavior.
+- Move the board cursor to the requested cell.
+- Report errors clearly when the board or coordinates are invalid.
+
+The source block is responsible for passing the destination values to the navigation command. The navigation command itself remains independent of teleportation and can be used by any object or other executable code.
+
+### 11.4. Acceptance Criteria
+1. The package provides a general command to move the cursor to specified coordinates on a specified board.
+2. The command works with the active board and with another board in the active world.
+3. A normal object Org file can invoke this command from a source block.
+4. A marker that invokes the command requires no dedicated teleportation type or subsystem.
+5. Executing the marker's source block moves the cursor to its configured destination.
+6. Invalid boards and coordinates produce clear errors without unintended navigation.
+7. All navigation uses the same general-purpose command, regardless of which object or source block invokes it.
 
 ## 12. Side Log and Status Area
 
@@ -821,7 +828,7 @@ The implementation is considered compliant with this interface specification whe
 17. Hands support ordering, active-hand switching, first/last/selected/random card operations, source-block execution, and blind operations.
 18. Permanent containers preserve independent object files, while explicit stack creation consolidates selected object documents.
 19. Container operations support drawing, shuffling, revealing, and laying out contents without silently losing items.
-20. Teleportation to coordinates and markers is supported.
+20. Cursor Navigation Between Boards to coordinates is supported.
 21. Game messages are written to the appropriate shared log without automatically importing ordinary Emacs messages.
 22. Evil and Hydra remain optional.
 23. Failure conditions are reported clearly, and operations avoid silent data loss.
