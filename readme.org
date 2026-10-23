@@ -63,12 +63,20 @@
   (setq boardgame-default-world-directory (expand-file-name "world" default-directory)))
 #+end_src
 
-** Вариант 2: Локальное подключение (load-path)
+** Вариант 2: Прямая загрузка через load
+#+begin_src emacs-lisp
+;; Каталог src.el автоматически регистрируется в load-path при загрузке:
+(load "~/Dev/emacs/boardgame-org/src.el/boardgame-org.el")
+
+;; Запуск настольной среды в выделенном фрейме:
+(boardgame-start)
+#+end_src
+
+** Вариант 3: Локальное подключение (load-path & require)
 #+begin_src emacs-lisp
 (add-to-list 'load-path "~/Dev/emacs/boardgame-org/src.el/")
 (require 'boardgame-org)
 
-;; Запуск настольной среды в выделенном фрейме:
 (boardgame-start)
 #+end_src
 

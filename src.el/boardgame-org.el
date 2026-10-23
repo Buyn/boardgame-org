@@ -15,6 +15,13 @@
 
 ;;; Code:
 
+;; Ensure package directory is in `load-path` when loaded via `load` or `load-file`
+(eval-and-compile
+  (let ((dir (file-name-directory (or load-file-name buffer-file-name ""))))
+    (when (and dir (file-directory-p dir) (not (member (file-name-as-directory (expand-file-name dir))
+                                                       (mapcar #'file-name-as-directory load-path))))
+      (add-to-list 'load-path (expand-file-name dir)))))
+
 (require 'cl-lib)
 (require 'org)
 (require 'boardgame-org-core)

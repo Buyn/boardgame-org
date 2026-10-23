@@ -63,7 +63,7 @@
         (insert "-------------------\n")
         (insert "[?] Menu  [m] Move  [H] Hand\n")
         (insert "[S] Stack [U] Unstack [d] Draw\n")
-        (goto-char (point-min)))))))
+        (goto-char (point-min))))))
 
 (provide 'boardgame-org-status)
 ;;; boardgame-org-status.el ends here

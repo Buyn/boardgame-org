@@ -32,7 +32,7 @@ export default function App() {
   const sections = useMemo<Section[]>(() => {
     const lines = README_ORG_CONTENT.split('\n');
     const result: Section[] = [];
-    lines.forEach((line, idx) => {
+    lines.forEach((line: string, idx: number) => {
       const match = line.match(/^(\*{1,3})\s+(.*)$/);
       if (match) {
         const level = match[1].length;
@@ -129,7 +129,7 @@ export default function App() {
       }
     };
 
-    lines.forEach((line, index) => {
+    lines.forEach((line: string, index: number) => {
       // Check for code blocks
       if (line.startsWith('#+begin_src')) {
         flushTable();
@@ -190,7 +190,7 @@ export default function App() {
           .trim()
           .slice(1, -1)
           .split('|')
-          .map(c => c.trim());
+          .map((c: string) => c.trim());
         tableRows.push(cells);
         return;
       } else if (inTable) {
