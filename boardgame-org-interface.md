@@ -1069,7 +1069,6 @@ Normal state must remain suitable for navigation, object inspection, and command
 The package must remain usable without Evil. Hydra may provide optional menus, but no essential operation may depend on it.
 
 ## 14. Error Handling and Unsaved Changes
-
 The package must handle missing or invalid resources, missing properties, absent source blocks, invalid coordinates, empty containers, invalid card indices, insufficient free board cells, and failed saves with clear messages.
 
 A command must not silently delete unrelated objects or files, overwrite another board, or leave the game state inconsistent after a failed operation.
