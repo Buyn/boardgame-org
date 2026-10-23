@@ -2,10 +2,27 @@
 :header-args: :tangle no :mkdirp yes :no-expand t :results output silent
 :END:
 * files
+** specs
 (find-file-other-frame "./boardgame-org.el")
 (find-file-other-frame "./boardgame-org.md")
 (find-file-other-frame "./boardgame-org-interface.md")
 ~/Dev/emacs/boardgame-org/boardgame-org.md
+** 
+
+~/Dev/emacs/boardgame-org/src.el/boardgame-org-board.el
+~/Dev/emacs/boardgame-org/src.el/boardgame-org-container.el
+~/Dev/emacs/boardgame-org/src.el/boardgame-org-core.el
+~/Dev/emacs/boardgame-org/src.el/boardgame-org-drawing.el
+~/Dev/emacs/boardgame-org/src.el/boardgame-org-frame.el
+~/Dev/emacs/boardgame-org/src.el/boardgame-org-hand.el
+~/Dev/emacs/boardgame-org/src.el/boardgame-org-log.el
+~/Dev/emacs/boardgame-org/src.el/boardgame-org-marker.el
+~/Dev/emacs/boardgame-org/src.el/boardgame-org-object.el
+~/Dev/emacs/boardgame-org/src.el/boardgame-org-render.el
+~/Dev/emacs/boardgame-org/src.el/boardgame-org-stack.el
+~/Dev/emacs/boardgame-org/src.el/boardgame-org-status.el
+~/Dev/emacs/boardgame-org/src.el/boardgame-org-test.el
+~/Dev/emacs/boardgame-org/src.el/boardgame-org.el
 * SRC
 :PROPERTIES:
 :header-args: :dir ~/Dev/emacs/boardgame-org/ :tangle no
@@ -348,7 +365,11 @@ The status area must remain distinct from the stream of log messages.
 ** TODO in progress
 *** boardgame-org-interface.md
 я добавил дополнительный фаил спецификации. описываюний поведение и интерфейс boardgame-org-interface.md.
-довай перепишим пакет для того чтоб он отражал новые требования указаные в новом файле спецификации. учитываю основной фаили спецификации boardgame-org.md.
+довай перепишим elisp пакет для того чтоб он отражал новые требования указаные в новом файле спецификации. учитываю основной фаили спецификации boardgame-org.md.
+*** возми фаилы boardgame-org.md и boardgame-org-interface.md
+и используй их техническую спецификацию для создания на elisp for emacs пакета для emacs.
+и напиши пакета для emacs следуя этому файлу, в папке src.el, на elisp следуя спецификации указаной в файле.
+и сделай фаил readme.org c описанием и инструкций по использованию получившевося пакет. для варианта на тайп скрип сделай только отображения инструкции из файл readme.org.
 ** dezine
 ** todo
 *** описать систему именования создаваемых оргов
@@ -380,6 +401,17 @@ The status area must remain distinct from the stream of log messages.
 (load "boardgame-org.el")
 #+end_src
 
+#+begin_src emacs-lisp
+(add-to-list 'load-path "~/Dev/emacs/boardgame-org/src.el/")
+(require 'boardgame-org)
+
+;; Опционально: директория мира по умолчанию
+(setq boardgame-default-world-directory "~/Dev/emacs/boardgame-world/test")
+
+;; Запуск настольной среды в выделенном фрейме:
+(boardgame-start )
+#+end_src
+"~/Dev/emacs/boardgame-world/test"
 
 (progn
   (load "~/Dev/AI/kiro-proj/ZZTemacs/zzt.el")

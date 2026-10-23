@@ -1,8 +1,0 @@
-{
-  "name": "boardgame.org",
-  "description": "Text-based tabletop environment in Emacs and Org-mode with live visual felt tabletop, Org document object persistence, stacks, containers, and Git world history.",
-  "permissions": [],
-  "capabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
-}
