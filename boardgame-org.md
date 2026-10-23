@@ -22,7 +22,6 @@ The project is not intended to be a conventional database-backed game engine.
 
 ## 2. Org Files as Object Identity and Persistent Representation
 ### 2.1. An Object Is a File
-
 An independently existing game object is represented by an Org file.
 
 An object may represent a card, a die, a token, a container, a deck, or another entity supported by the engine.
@@ -32,7 +31,6 @@ An object file contains the object's name, properties, visual representation, an
 The object file is not merely an export or a disposable cache. It is the persistent representation of that independently existing object.
 
 The following invariant applies:
-
 > An independently existing object has its own Org file. When that object ceases to exist as an independent object because it has been incorporated into another representation, its former standalone file must be removed.
 
 Creating an object produces an Org file when the object is materialized. Moving an object between locations changes its placement and organizational relationships. Incorporating an object into a stack changes its representation and removes its former standalone file.
@@ -40,7 +38,6 @@ Creating an object produces an Org file when the object is materialized. Moving 
 This distinction is fundamental to the project's file-oriented architecture.
 
 ### 2.2. Object Creation and Removal
-
 When a new object is created, the system generates an Org document containing at least the required heading and property structure.
 
 The object should be created only when requested by an operation that requires its existence. Merely encountering a symbol or an unresolved reference should not silently create arbitrary objects without the appropriate user interaction or explicit operation.
@@ -48,7 +45,6 @@ The object should be created only when requested by an operation that requires i
 When an object is removed from the game, its file must be handled consistently with the operation that removed it.
 
 For example:
-
 - Deleting an independent object removes that object and its persistent representation.
 - Incorporating an object into a stack removes its former standalone representation because the object's content is transferred into the stack document.
 - Moving an object into a permanent container does not remove its standalone file merely because it is no longer on the board.
@@ -56,13 +52,11 @@ For example:
 These operations must not be confused with one another.
 
 ### 2.3. Org Documents as Contexts
-
 The project treats Org documents as manageable contexts.
 
 A context may contain one object, many objects, or an organized collection of references to other objects, depending on the context type.
 
 The important architectural operation is the deliberate transformation of these contexts:
-
 - Creating a standalone object produces a new Org document.
 - Combining objects into a stack consolidates their Org content into one document.
 - Adding an object to a permanent container changes the container's organization while preserving the independent object document.
@@ -73,13 +67,11 @@ The implementation should make these distinctions explicit in the command and da
 ## 3. Stacks and Containers Are Fundamentally Different
 Stacks and containers may look similar on the board, but they have different persistence semantics. They must be modeled as distinct concepts rather than two visual variations of the same generic operation.
 ### 3.1. Stack: Consolidation of Org Documents
-
 A stack is a consolidated Org document containing the content of multiple objects.
 
 Its primary purpose is to transform the representation of objects by merging their previously independent Org documents into a single document.
 
 When several objects are explicitly combined into a stack:
-
 1. The operation identifies the objects selected for consolidation.
 2. Their relevant Org content is incorporated into a new or designated stack document.
 3. The stack document preserves the information required to represent the combined objects and their internal order.
@@ -98,13 +90,11 @@ If a stack is later expanded into independent objects, the implementation must r
 The specification must not require automatic dissolution whenever a stack contains only one remaining entry unless that behavior is explicitly adopted as a separate rule.
 
 ### 3.2. Permanent Container: Organization Without Consolidation
-
 A permanent container is a persistent Org document that organizes independently existing objects.
 
 Its defining property is that it changes the arrangement and location of objects without merging their standalone Org documents.
 
 When an object is placed into a permanent container:
-
 1. The object is removed from its former board position or hand, as applicable.
 2. Its standalone Org file remains intact.
 3. The container records the object's membership and position in its internal ordering.
@@ -119,7 +109,6 @@ A container may also define custom behavior through its properties or source blo
 These behaviors operate on the container's organization and its members. They must not implicitly merge the members' documents.
 
 ### 3.3. Comparison
-
 | Property | Stack | Permanent container |
 |---|---|---|
 | Primary purpose | Consolidate object documents | Organize independent objects |
