@@ -298,6 +298,57 @@ Errors must be reported clearly. The navigation command must never silently subs
 довай перепишим пакет для того чтоб он отражал новые требования на указаные в новом файле спецификации. учитываю основной фаили спецификации boardgame-org.md.
 ** dezine
 ** todo
+*** DONE Почитал твоё описание работы сайд лога - да это то что я говорил.
+Но подумал что лучше расширить его работу.
+сделать его персистентым для мира. и имя лога это название мира + лог + .org
+лог это стандартный буфер орг фаила значит логи, чтоб он вел себя как таковой!
+Тоесть он должен себя позволять редактировать и быть обычным орг файлом.
+а каждый новый лог энтри начинался с "* "  что делало его отдельным разделом
+и входяшие вэто под сообщени или параметры имели подветления ** *** и так далее.
+и как стандартный оргбуфекр, он мог отображать изображения.
+если при открытии фрейма фаили лога отсутсвует то создаётся новый.
+
+## 12. Side Log and Status Area
+### 12.1. Explicit logging
+The side log must display only messages explicitly sent through the game's logging interface.
+
+Ordinary Emacs messages, warnings, and internal diagnostics must not automatically be copied into the game log.
+
+The log may contain gameplay events, object descriptions, command results, property information, and other explicit messages.
+
+Where supported, log entries may contain foreground/background color information and images referenced by world-relative paths.
+
+### 12.2. Scrolling and wrapping
+Log messages must wrap naturally within the log window.
+
+When a new message is sent, the log should scroll to the newest entry. Users must still be able to scroll manually through older messages using ordinary Emacs commands.
+
+Log scrolling must be independent of board scrolling.
+
+### 12.3. Shared log scope
+The default log is shared by all game frames associated with the same active world.
+
+Messages sent from any board or frame in that world must appear in the same log buffer.
+
+Switching boards within the world must not create a separate log by default.
+
+The package may optionally support persistent logs stored in Org files. If per-board persistent logging is implemented, it must remain distinct from the shared session log and its behavior must be documented.
+
+### 12.4. Status area
+The optional status area may show:
+- Active world and board.
+- Active hand.
+- Selected object and relevant properties.
+- Global variables and tokens.
+- Drawing-mode state.
+- Active drawing character and colors.
+
+The status area must remain distinct from the stream of log messages.
+
+
+*** Status area потерялся!
+что это сплит окно на логом.
+
 *** убедится что описаны обекты
 и что описана команда открыть орг обекта
 *** описаит систему именования создаваемых оргов

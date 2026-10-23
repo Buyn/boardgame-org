@@ -823,9 +823,7 @@ The intended workflow is:
 The marker does not need to remain at its original location to work. Its source block always uses the stored destination properties.
 
 ### 11.6. Error Handling
-
 The navigation command and marker source block must handle these conditions:
-
 - `DESTINATION_BOARD` is missing or invalid.
 - The destination board file no longer exists.
 - The destination coordinates are missing, invalid, or outside the board dimensions.
@@ -837,7 +835,6 @@ The navigation command and marker source block must handle these conditions:
 Errors must be reported clearly. Navigation must never silently substitute another board. Failed creation or registration must not silently discard the marker's content.
 
 ### 11.7. Acceptance Criteria
-
 1. The package provides a general-purpose command for moving the cursor to coordinates on a specified board.
 2. The command identifies boards exclusively by filename within the active world.
 3. A navigation marker is an ordinary object, not a dedicated engine entity.
@@ -854,52 +851,201 @@ Errors must be reported clearly. Navigation must never silently substitute anoth
 14. File creation and board registration failures are reported without
 
 ## 12. Side Log and Status Area
+### 12.1. General Concept
+Each world has one persistent log stored as a regular Org file.
+The log is an ordinary Org document, not a temporary message buffer or a custom-rendered interface. It must remain editable using standard Org-mode and Emacs functionality.
 
-### 12.1. Explicit logging
+The log serves as the world's shared record of events, messages, descriptions, and other information explicitly written to it by game commands and object source blocks.
 
-The side log must display only messages explicitly sent through the game's logging interface.
+All game frames displaying boards from the same world share the same log file and log buffer.
 
-Ordinary Emacs messages, warnings, and internal diagnostics must not automatically be copied into the game log.
+### 12.2. Log Filename and Location
+The log file is stored in the world's directory and named according to this convention:
+`(world name)-log.org`
 
-The log may contain gameplay events, object descriptions, command results, property information, and other explicit messages.
+For example, a world named `Dungeon` uses:
+`Dungeon-log.org`
 
-Where supported, log entries may contain foreground/background color information and images referenced by world-relative paths.
+The exact filename must be derived consistently from the world's configured name. Filesystem-safe naming rules must be applied where necessary.
 
-### 12.2. Scrolling and wrapping
+The log belongs to the world, not to an individual board or game frame. Switching between boards in the same world must not switch to a different log.
 
-Log messages must wrap naturally within the log window.
+### 12.3. Automatic Creation
+When a game frame is opened for a world, the package must check whether that world's log file exists.
+- If the log file exists, open and display it.
+- If the log file does not exist, create a new Org file at the expected location and display it.
+- If the file cannot be created or opened, report the error clearly rather than silently substituting a temporary log.
 
-When a new message is sent, the log should scroll to the newest entry. Users must still be able to scroll manually through older messages using ordinary Emacs commands.
+All game frames for the same world must use the same log file and, where possible, the same Emacs buffer visiting that file.
 
-Log scrolling must be independent of board scrolling.
+Creating an additional game frame must not create a duplicate log for the same world.
 
-### 12.3. Shared log scope
+### 12.4. Org Structure of Log Entries
+Each new top-level log entry must begin with a level-one Org heading:
+`* Entry title`
 
-The default log is shared by all game frames associated with the same active world.
+The heading represents one log entry. Its title should be a concise description of the event or message.
 
-Messages sent from any board or frame in that world must appear in the same log buffer.
+Additional information belonging to that entry must be stored under nested headings:
+- `**` for direct subsections.
+- `***` for subsections of those subsections.
+- Further heading levels as required.
 
-Switching boards within the world must not create a separate log by default.
+This structure allows a log entry to contain multiple related messages, parameters, descriptions, or other structured content without mixing them with unrelated entries.
 
-The package may optionally support persistent logs stored in Org files. If per-board persistent logging is implemented, it must remain distinct from the shared session log and its behavior must be documented.
+For example:
+```org
+* Marker activated
+** Destination
+- Board: Dungeon.org
+- X: 12
+- Y: 8
+** Result
+The cursor moved to the destination.
 
-### 12.4. Status area
+* Container opened
+** Contents
+- Key
+- Map
+```
 
-The optional status area may show:
+The example illustrates the structure; actual entry titles and content depend on the command or source block writing the entry.
 
-- Active world and board.
+The package must not flatten nested information into a single unstructured message when the caller supplies structured content.
+
+### 12.5. Log Writing Interface
+The package must provide a common logging interface for game commands and object source blocks.
+
+The interface must support:
+- Creating a new top-level log entry.
+- Appending content to an existing entry when explicitly requested.
+- Adding nested sections to an entry.
+- Recording plain text and structured Org content.
+- Including Org-compatible links, images, and other supported Org elements when supplied by the caller.
+
+Unless an existing entry is explicitly targeted, a new logging operation creates a new top-level entry.
+
+All package-generated log content must be inserted using valid Org syntax and must preserve the existing document's structure.
+
+Normal Emacs messages, warnings, and errors must not automatically be copied into the world log. Only information explicitly sent through the package's logging interface belongs there.
+
+### 12.6. Standard Org Editing and Rendering
+The log buffer must behave like a regular Org buffer.
+
+The user must be able to:
+- Edit and delete log entries using standard Emacs commands.
+- Change headings and rearrange sections.
+- Fold and unfold headings.
+- Use standard Org navigation and editing functionality.
+- Insert and view supported images and links.
+- Use ordinary Org formatting and other standard document features.
+
+The package must not impose a read-only mode on the log or replace standard Org editing behavior with a custom message viewer.
+
+Images and other Org elements must be handled through normal Org-mode functionality rather than a separate log-rendering system.
+
+The package must preserve user edits when new entries are appended. It must not rebuild the entire log from an internal message history or overwrite manual changes.
+
+### 12.7. Shared Log Across Game Frames
+Every game frame associated with the same world must display the same persistent log.
+
+Consequently:
+- A new entry written from one game frame must appear in the shared log buffer used by the other frames.
+- Manual edits to the log must remain visible wherever that buffer is displayed.
+- Board switching must not reset or replace the log.
+- Opening another board in the same world must not create a new log.
+- Different worlds must use different log files and buffers.
+
+The log window's navigation and scrolling remain independent of the board window's navigation and scrolling.
+
+New entries should normally be visible by moving the log window to the newest entry after a package-generated write. This behavior must not interfere with the user's ability to navigate and edit older entries.
+
+### 12.8. Persistence and Saving
+The world log is a persistent file belonging to the world.
+The world log will be saved every time any board is saved.
+
+Changes made by game commands, object source blocks, and manual editing must be tracked as ordinary buffer modifications. The package must not silently discard unsaved log changes.
+
+The implementation must define when package-generated entries are written to disk and ensure that the policy is consistent with normal Emacs buffer-saving behavior. If the log is saved automatically, that policy must not overwrite concurrent unsaved user edits.
+
+The log and each board are separate Org files with independent modification states.
+
+### 12.9. Error Handling
+The package must handle:
+- A missing log file.
+- Failure to create or open the log file.
+- A log buffer that cannot be written to disk.
+- Invalid Org content supplied to the logging interface.
+- Attempts to append content when the intended entry cannot be identified.
+- Concurrent changes or unsaved edits that could otherwise be overwritten.
+
+Errors must be reported clearly. The package must never silently replace a persistent log with a temporary buffer or discard existing log content.
+
+### 12.10. Acceptance Criteria
+1. Every world has one persistent Org log file.
+2. The log filename follows the world-name-based naming convention.
+3. Opening a game frame creates the log file if it does not exist.
+4. Game frames displaying boards from the same world share the same log buffer.
+5. Every new independent log entry begins with a level-one heading.
+6. Related information can be represented using nested Org headings.
+7. The log remains a normal, editable Org document.
+8. Standard Org folding, navigation, editing, image display, and link handling remain available.
+9. Package-generated entries do not erase manual edits.
+10. Only content explicitly sent through the package's logging interface is added to the log.
+11. The log has an independent persistence lifecycle from individual boards.
+12. Unsaved log changes are not silently discarded.
+
+### 12.11. Log Window and Status Area Layout
+The right-hand side of the game frame contains two separate Emacs windows arranged vertically:
+1. **Log window:** displays the world's persistent Org log buffer.
+2. **Status window:** displays the current game status.
+
+The log and status area are separate windows displaying separate buffers. The status area is not a section of the log file and must not be rendered as part of the log buffer.
+
+#### 6.1. Window Proportions
+The default game frame layout is:
+- The board window occupies approximately 80% of the available horizontal space.
+- The right-hand column occupies approximately 20% of the available horizontal space.
+- Within the right-hand column, the log window occupies approximately 80% of the available vertical space, and the status window occupies approximately 20%.
+
+These proportions must be configurable.
+
+The layout must use standard Emacs window-management facilities. The package must not simulate the board, log, or status area as artificial regions within a single buffer.
+
+#### 6.2. Status Buffer
+The status area must display the current game state using a separate buffer.
+
+Depending on the available information, it may show:
+- Active board filename.(better in the frame title)
 - Active hand.
-- Selected object and relevant properties.
-- Global variables and tokens.
-- Drawing-mode state.
-- Active drawing character and colors.
+- Object under the board cursor and its relevant properties.
+- Current drawing submode and selected glyph or colors.
+- Other useful game-state information explicitly supported by the package.
 
-The status area must remain distinct from the stream of log messages.
+The status buffer is a display of current state, not a persistent event log. Its contents must be refreshed when relevant game state changes.
 
+Status updates must not create log entries unless a command explicitly requests a corresponding log entry.
+
+The status area must not interfere with editing or navigation in the log buffer.
+
+#### 6.3. Independent Behavior
+The log and status windows must have independent purposes and navigation behavior.
+- Scrolling the log must not affect the board or status area.
+- Updating the status buffer must not move the log's point or replace its contents.
+- Appending a log entry must not overwrite status information.
+- Switching boards must update the appropriate status information while preserving the world's shared log.
+- Multiple game frames associated with the same world share the same log buffer, but each frame may display its own status buffer reflecting the board and game context relevant to that frame.
+
+#### 6.4. Lifecycle
+When a game frame is created, the package must establish the board, log, and status windows.
+
+The log window displays the persistent world log described in this specification. If the log file does not exist, it is created according to the automatic-creation rules.
+
+The status buffer may be temporary and can be recreated when necessary. It must not be confused with the persistent log file.
+
+Closing a game frame must not delete the world's log file or discard unsaved log changes. Closing one frame must not invalidate the shared log buffer while another frame still uses it.
 ## 13. Commands and Keyboard Bindings
-
 ### 13.1. Interactive command availability
-
 Every principal operation must be accessible through a documented interactive command, even when no optional menu package is installed.
 
 The public command reference must include commands for game startup, world selection, board management, object management, drawing, hands, stacks, containers, teleportation, and logging.
@@ -907,7 +1053,6 @@ The public command reference must include commands for game startup, world selec
 The proposed command names in this document may be refined, but their functionality must be preserved and names must be consistent throughout the implementation, documentation, and tests.
 
 ### 13.2. Function keys and sequential key chords
-
 The game keymap may use F1 through F12 for game commands.
 
 The package must support sequential key sequences of up to three key presses. For example, pressing `F5` followed by `F1` is a two-key sequence.
@@ -917,7 +1062,6 @@ These are sequential key sequences, not simultaneous physical key combinations.
 Bindings must be documented and configurable. The package should avoid unnecessary conflicts with the user's existing keymaps.
 
 ### 13.3. Evil compatibility
-
 Standard Evil normal-mode movement must not be globally overridden.
 
 Normal state must remain suitable for navigation, object inspection, and command invocation. Insert-state movement may paint while drawing mode is active.
