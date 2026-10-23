@@ -1,0 +1,6 @@
+{
+  "summary":  "Implementation plan for the complete MELPA/ELPA-compliant modular Emacs Lisp package in `src.el/` using `./world/` default directory, full `boardgame-org.md` & `boardgame-org-interface.md` specifications, updated `readme.org`, and TypeScript interactive viewer.",
+  "updatedAt":  "2026-10-23T02:35:21.647734942Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

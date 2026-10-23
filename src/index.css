@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+}
+
+/* Custom scrollbars matching Doom-One / Catppuccin theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #181825;
+}
+::-webkit-scrollbar-thumb {
+  background: #313244;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #45475a;
+}
