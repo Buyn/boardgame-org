@@ -17,30 +17,40 @@
 
 ;; Ensure package directory is in `load-path` when loaded via `load` or `load-file`
 (eval-and-compile
-  (let* ((this-dir (file-name-directory
-                    (or load-file-name
-                        buffer-file-name
-                        (and (boundp 'byte-compile-current-file) byte-compile-current-file)
-                        default-directory))))
-    (when (and this-dir (file-directory-p this-dir))
-      (let ((clean-dir (file-name-as-directory (expand-file-name this-dir))))
-        (unless (member clean-dir (mapcar #'file-name-as-directory load-path))
-          (add-to-list 'load-path clean-dir))))))
-
+  (let* ((raw-dir (file-name-directory
+                   (or load-file-name
+                       buffer-file-name
+                       (and (boundp 'byte-compile-current-file) byte-compile-current-file)
+                       default-directory)))
+         (base-dir (if raw-dir (file-name-as-directory (expand-file-name raw-dir)) default-directory))
+         (src-dir (cond
+                   ((file-exists-p (expand-file-name "boardgame-org-core.el" base-dir))
+                    base-dir)
+                   ((file-exists-p (expand-file-name "src.el/boardgame-org-core.el" base-dir))
+                    (file-name-as-directory (expand-file-name "src.el" base-dir)))
+                   (t base-dir))))
+    (when (and src-dir (file-directory-p src-dir))
+      (add-to-list 'load-path src-dir))))
 
 (require 'cl-lib)
 (require 'org)
-(require 'boardgame-org-core)
-(require 'boardgame-org-log)
-(require 'boardgame-org-status)
-(require 'boardgame-org-frame)
-(require 'boardgame-org-board)
-(require 'boardgame-org-drawing)
-(require 'boardgame-org-marker)
-(require 'boardgame-org-object)
-(require 'boardgame-org-stack)
-(require 'boardgame-org-container)
-(require 'boardgame-org-hand)
+
+;; Ensure all submodules are loaded, re-reading from disk if missing definitions
+(dolist (submod '(boardgame-org-core
+                  boardgame-org-log
+                  boardgame-org-status
+                  boardgame-org-frame
+                  boardgame-org-board
+                  boardgame-org-drawing
+                  boardgame-org-marker
+                  boardgame-org-object
+                  boardgame-org-stack
+                  boardgame-org-container
+                  boardgame-org-hand))
+  (unless (and (featurep submod)
+               (fboundp 'boardgame-ensure-world-dirs))
+    (load (symbol-name submod) nil t))
+  (require submod))
 
 ;;; Buffer-local Variables
 

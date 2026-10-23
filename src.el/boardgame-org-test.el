@@ -22,33 +22,64 @@
 
 ;; Ensure package directory is automatically in `load-path` when loaded via `load-file` or `load`
 (eval-and-compile
-  (let* ((this-dir (file-name-directory
-                    (or load-file-name
-                        buffer-file-name
-                        (and (boundp 'byte-compile-current-file) byte-compile-current-file)
-                        default-directory))))
-    (when (and this-dir (file-directory-p this-dir))
-      (let ((clean-dir (file-name-as-directory (expand-file-name this-dir))))
-        (unless (member clean-dir (mapcar #'file-name-as-directory load-path))
-          (add-to-list 'load-path clean-dir))))))
+  (let* ((raw-dir (file-name-directory
+                   (or load-file-name
+                       buffer-file-name
+                       (and (boundp 'byte-compile-current-file) byte-compile-current-file)
+                       default-directory)))
+         (base-dir (if raw-dir (file-name-as-directory (expand-file-name raw-dir)) default-directory))
+         (src-dir (cond
+                   ((file-exists-p (expand-file-name "boardgame-org-core.el" base-dir))
+                    base-dir)
+                   ((file-exists-p (expand-file-name "src.el/boardgame-org-core.el" base-dir))
+                    (file-name-as-directory (expand-file-name "src.el" base-dir)))
+                   (t base-dir))))
+    (when (and src-dir (file-directory-p src-dir))
+      (add-to-list 'load-path src-dir))))
 
 (require 'ert)
 (require 'cl-lib)
 (require 'org)
 
-;; Force-load all modular components to ensure full definition
-(require 'boardgame-org-core)
-(require 'boardgame-org-log)
-(require 'boardgame-org-status)
-(require 'boardgame-org-frame)
-(require 'boardgame-org-board)
-(require 'boardgame-org-drawing)
-(require 'boardgame-org-marker)
-(require 'boardgame-org-object)
-(require 'boardgame-org-stack)
-(require 'boardgame-org-container)
-(require 'boardgame-org-hand)
-(require 'boardgame-org)
+;; Force fresh load of all modular components to ensure definitions are updated in active Emacs sessions
+(dolist (pkg '(boardgame-org-core
+               boardgame-org-log
+               boardgame-org-status
+               boardgame-org-frame
+               boardgame-org-board
+               boardgame-org-drawing
+               boardgame-org-marker
+               boardgame-org-object
+               boardgame-org-stack
+               boardgame-org-container
+               boardgame-org-hand
+               boardgame-org))
+  (load (symbol-name pkg) nil t)
+  (require pkg))
+
+;;; Test Helper Functions
+
+(defun boardgame--test-run-stack-consolidation ()
+  "Core logic for stack consolidation, file cleanup, '$' glyph and expansion."
+  (let* ((temp-dir (make-temp-file "bg-test-world" t))
+         (boardgame-active-world-directory temp-dir))
+    (boardgame-ensure-world-dirs)
+    (let* ((obj1 (boardgame-object-create "t1" "Token 1" "A"))
+           (obj2 (boardgame-object-create "t2" "Token 2" "B"))
+           (stack-obj (boardgame-stack-consolidate (list obj1 obj2) "test-stack" "Test Stack")))
+      ;; Standalone files removed per Section 3.1 & 10.1
+      (should-not (file-exists-p (boardgame-world-file "objects/t1.org")))
+      (should-not (file-exists-p (boardgame-world-file "objects/t2.org")))
+      ;; Stack file created with '$' glyph
+      (should (file-exists-p (boardgame-world-file "stacks/test-stack.org")))
+      (should (equal (boardgame-object-glyph stack-obj) "$"))
+      ;; Now expand stack back
+      (let ((restored (boardgame-stack-expand stack-obj)))
+        (should (= (length restored) 2))
+        (should (file-exists-p (boardgame-world-file "objects/t1.org")))
+        (should (file-exists-p (boardgame-world-file "objects/t2.org")))
+        (should-not (file-exists-p (boardgame-world-file "stacks/test-stack.org")))))
+    (delete-directory temp-dir t)))
 
 ;;; Test Definitions
 
@@ -112,30 +143,11 @@
 
 (ert-deftest boardgame-test-stack-consolidation-and-glyph ()
   "Test Section 10.1: stack consolidation removes standalone files and uses ’$’."
-  (let* ((temp-dir (make-temp-file "bg-test-world" t))
-         (boardgame-active-world-directory temp-dir))
-    (boardgame-ensure-world-dirs)
-    (let* ((obj1 (boardgame-object-create "t1" "Token 1" "A"))
-           (obj2 (boardgame-object-create "t2" "Token 2" "B"))
-           (stack-obj (boardgame-stack-consolidate (list obj1 obj2) "test-stack" "Test Stack")))
-      ;; Standalone files removed per Section 3.1 & 10.1
-      (should-not (file-exists-p (boardgame-world-file "objects/t1.org")))
-      (should-not (file-exists-p (boardgame-world-file "objects/t2.org")))
-      ;; Stack file created with '$' glyph
-      (should (file-exists-p (boardgame-world-file "stacks/test-stack.org")))
-      (should (equal (boardgame-object-glyph stack-obj) "$"))
-      ;; Now expand stack back
-      (let ((restored (boardgame-stack-expand stack-obj)))
-        (should (= (length restored) 2))
-        (should (file-exists-p (boardgame-world-file "objects/t1.org")))
-        (should (file-exists-p (boardgame-world-file "objects/t2.org")))
-        (should-not (file-exists-p (boardgame-world-file "stacks/test-stack.org")))))
-    (delete-directory temp-dir t)))
+  (boardgame--test-run-stack-consolidation))
 
 (ert-deftest boardgame-test-stack-consolidation-and-expansion ()
   "Test that consolidating objects into a stack merges files and expansion restores them."
-  ;; Delegates to consolidation and glyph test for backward compatibility
-  (boardgame-test-stack-consolidation-and-glyph))
+  (boardgame--test-run-stack-consolidation))
 
 (ert-deftest boardgame-test-marker-navigation ()
   "Test Section 11: marker creation and parameterized coordinate navigation."

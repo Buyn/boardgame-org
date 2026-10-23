@@ -41,6 +41,48 @@ Resolves BOARD-FILENAME exclusively within active world's boards directory."
                        `(("Destination" . ,(format "%s at (%d, %d)" board-filename x y))))))))
 
 ;;;###autoload
+(defun boardgame-marker-generate (board-filename x y)
+  "Generate and persist a navigation marker Org file targeting BOARD-FILENAME at (X, Y).
+Creates an object named 'Marker (board filename) (x, y)' with glyph '^',
+foreground 'white', destination properties, and an executable source block.
+Returns the newly created `boardgame-object`."
+  (let* ((bfilename board-filename)
+         (obj-name (format "Marker %s (%d, %d)" bfilename x y))
+         (obj-id (format "marker-%s-%d-%d"
+                         (file-name-sans-extension bfilename) x y))
+         (obj-rel-path (format "objects/%s.org" obj-id))
+         (obj-full-path (boardgame-world-file obj-rel-path)))
+    (unless (file-exists-p obj-full-path)
+      (make-directory (file-name-directory obj-full-path) t)
+      (with-temp-file obj-full-path
+        (insert ":PROPERTIES:\n")
+        (insert (format ":ID: %s\n" obj-id))
+        (insert (format ":NAME: %s\n" obj-name))
+        (insert ":OBJECT_TYPE: marker\n")
+        (insert ":TYPE: marker\n")
+        (insert ":GLYPH: ^\n")
+        (insert ":FOREGROUND: white\n")
+        (insert (format ":DESTINATION_BOARD: %s\n" bfilename))
+        (insert (format ":DESTINATION_X: %d\n" x))
+        (insert (format ":DESTINATION_Y: %d\n" y))
+        (insert ":END:\n\n")
+        (insert (format "* %s\n" obj-name))
+        (insert "Navigation marker parameterizing return to creation coordinates.\n\n")
+        (insert "#+begin_src emacs-lisp\n")
+        (insert "(let ((b (org-entry-get (point) \"DESTINATION_BOARD\"))\n")
+        (insert "      (x (string-to-number (or (org-entry-get (point) \"DESTINATION_X\") \"0\")))\n")
+        (insert "      (y (string-to-number (or (org-entry-get (point) \"DESTINATION_Y\") \"0\"))))\n")
+        (insert "  (boardgame-navigate-to-board-coord b x y))\n")
+        (insert "#+end_src\n")))
+    (boardgame-object-create
+     :id obj-id
+     :name obj-name
+     :glyph "^"
+     :type 'marker
+     :foreground "white"
+     :file-path obj-rel-path)))
+
+;;;###autoload
 (defun boardgame-create-marker ()
   "Create a navigation marker at current board cursor position.
 Generates an object named 'Marker (board filename) (x, y)' with glyph '^',
@@ -54,53 +96,18 @@ foreground 'white', destination properties, and an executable source block."
            (bfilename (boardgame-board-filename board))
            (cx (or (bound-and-true-p boardgame--cursor-x) 0))
            (cy (or (bound-and-true-p boardgame--cursor-y) 0))
-           (obj-name (format "Marker %s (%d, %d)" bfilename cx cy))
-           (obj-id (format "marker-%s-%d-%d"
-                           (file-name-sans-extension bfilename) cx cy))
-           (obj-rel-path (format "objects/%s.org" obj-id))
-           (obj-full-path (boardgame-world-file obj-rel-path)))
-      (when (file-exists-p obj-full-path)
-        (error "Marker object file '%s' already exists" obj-rel-path))
-      ;; 1. Write the marker Org document
-      (make-directory (file-name-directory obj-full-path) t)
-      (with-temp-file obj-full-path
-        (insert ":PROPERTIES:\n")
-        (insert (format ":ID: %s\n" obj-id))
-        (insert (format ":NAME: %s\n" obj-name))
-        (insert ":OBJECT_TYPE: marker\n")
-        (insert ":TYPE: marker\n")
-        (insert ":GLYPH: ^\n")
-        (insert ":FOREGROUND: white\n")
-        (insert (format ":DESTINATION_BOARD: %s\n" bfilename))
-        (insert (format ":DESTINATION_X: %d\n" cx))
-        (insert (format ":DESTINATION_Y: %d\n" cy))
-        (insert ":END:\n\n")
-        (insert (format "* %s\n" obj-name))
-        (insert "Navigation marker parameterizing return to creation coordinates.\n\n")
-        (insert "#+begin_src emacs-lisp\n")
-        (insert "(let ((b (org-entry-get (point) \"DESTINATION_BOARD\"))\n")
-        (insert "      (x (string-to-number (or (org-entry-get (point) \"DESTINATION_X\") \"0\")))\n")
-        (insert "      (y (string-to-number (or (org-entry-get (point) \"DESTINATION_Y\") \"0\"))))\n")
-        (insert "  (boardgame-navigate-to-board-coord b x y))\n")
-        (insert "#+end_src\n"))
-      ;; 2. Register on current board
-      (let ((placed (boardgame-placed-create :object-id obj-id :x cx :y cy :layer 0))
-            (obj (boardgame-object-create
-                  :id obj-id
-                  :name obj-name
-                  :glyph "^"
-                  :type 'marker
-                  :foreground "white"
-                  :file-path obj-rel-path)))
-        (push placed (boardgame-board-placed-objects board))
-        (push (cons obj-id obj) boardgame--current-objects-alist)
-        (boardgame-save-board)
-        (boardgame-refresh-board)
-        (when (fboundp 'boardgame-log)
-          (boardgame-log "Marker Created"
-                         `(("Name" . ,obj-name)
-                           ("Destination" . ,(format "%s (%d, %d)" bfilename cx cy)))))
-        (message "Created navigation marker: %s" obj-name)))))
+           (obj (boardgame-marker-generate bfilename cx cy))
+           (obj-id (boardgame-object-id obj))
+           (placed (boardgame-placed-create :object-id obj-id :x cx :y cy :layer 0)))
+      (push placed (boardgame-board-placed-objects board))
+      (push (cons obj-id obj) boardgame--current-objects-alist)
+      (boardgame-save-board)
+      (boardgame-refresh-board)
+      (when (fboundp 'boardgame-log)
+        (boardgame-log "Marker Created"
+                       `(("Name" . ,(boardgame-object-name obj))
+                         ("Destination" . ,(format "%s (%d, %d)" bfilename cx cy)))))
+      (message "Created navigation marker: %s" (boardgame-object-name obj)))))
 
 (provide 'boardgame-org-marker)
 ;;; boardgame-org-marker.el ends here
