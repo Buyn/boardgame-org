@@ -1,1 +1,29 @@
-/boardgame.org_archive
+# Compiled files
+*.elc
+*.eln
+
+# Backup files
+*~
+\#*\#
+
+# Temporary directories
+boardgame-test-*
+boardgame-int-*
+boardgame-load-*
+
+# Debug logs
+*debug*
+*trace*
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build artifacts
+*.log
+*.tmp
+
+# Auto-save
+.auto-save-list

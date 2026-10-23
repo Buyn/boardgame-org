@@ -1,4 +1,4 @@
-# boardgame-org-interface.md
+# boardgame.org-interface.md
 ## 1. Purpose and Relationship to `boardgame-org.md`
 This document defines the user-facing interface and observable behavior of `boardgame.org`, an Emacs Lisp tabletop game engine inspired by ZZT and character-based board games.
 It is an **integral part of `boardgame-org.md`**, not an independent or optional specification.
@@ -1050,7 +1050,7 @@ Every principal operation must be accessible through a documented interactive co
 
 The public command reference must include commands for game startup, world selection, board management, object management, drawing, hands, stacks, containers, teleportation, and logging.
 
-The proposed command names in this document may be refined, but their functionality must be preserved and names must be consistent throughout the implementation, documentation, and tests.
+The proposed command names in this document may be refined,但 their functionality must be preserved and names must be consistent throughout the implementation, documentation, and tests.
 
 ### 13.2. Function keys and sequential key chords
 The game keymap may use F1 through F12 for game commands.
@@ -1098,7 +1098,7 @@ The implementation is considered compliant with this interface specification whe
 15. Drawing mode supports character selection, foreground/background colors, pipette sampling, continuous painting, point painting, recent symbols, and region operations.
 16. Drawing changes the felt without unintentionally modifying the object layer.
 17. Hands support ordering, active-hand switching, first/last/selected/random card operations, source-block execution, and blind operations.
-18. Permanent containers preserve independent object files, while explicit stack creation consolidates selected object documents.
+18. Permanent containers preserve independent object files, while explicit stack creation consolidates object documents.
 19. Container operations support drawing, shuffling, revealing, and laying out contents without silently losing items.
 20. Cursor Navigation Between Boards to coordinates is supported.
 21. Game messages are written to the appropriate shared log without automatically importing ordinary Emacs messages.

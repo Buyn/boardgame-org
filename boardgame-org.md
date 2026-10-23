@@ -131,7 +131,6 @@ Tests must verify not only what appears on the board but also which Org files ex
 
 ## 4. Source of Truth and Serialization
 ### 4.1. The In-Memory Model
-
 The running game has an internal representation of its current state.
 
 The implementation may use suitable Emacs Lisp data structures, such as structs, hash tables, lists, vectors, or combinations of them.
@@ -143,13 +142,11 @@ The in-memory model must be capable of supporting the required behavior: object 
 It must not be confused with the Org file used to persist a board.
 
 ### 4.2. Loading
-
 When a board is loaded, its Org document is the source of truth for the board state being reconstructed.
 
 The loader interprets the document and creates the corresponding in-memory representation.
 
 The resulting state must preserve the information required by the specification, including:
-
 - Board dimensions and felt contents.
 - Object locations and references.
 - Object display information stored in the board representation.
@@ -171,7 +168,6 @@ For a state that contains only supported, serializable data, the following conce
 Equivalence concerns the defined game semantics, not necessarily the identity of internal Lisp objects or the exact arrangement of data structures in memory.
 
 ### 4.4. Human-Editable Persistence
-
 A primary design goal is that users can edit saved Org documents directly and load the edited documents back into the game.
 
 Consequently, the persistence format is part of the user-facing architecture, not an opaque implementation detail.
@@ -194,11 +190,9 @@ Hand sections describe hands associated with the board or world and identify the
 The exact internal representation of the loaded model remains an implementation decision. The serialized format, however, must preserve the defined semantics.
 
 ### 4.6. Felt Dimensions and Normalization
-
 The felt source block may contain fewer or more characters than the dimensions declared by the board.
 
 When loading:
-
 - Missing cells are filled with the designated default felt symbol.
 - Content outside the declared dimensions is ignored.
 - The resulting board conforms to its declared dimensions.
@@ -232,7 +226,6 @@ If a different representation is chosen, it must preserve equivalent behavior an
 
 ## 6. Persistence Reliability and Version Control
 ### 6.1. Recovery Strategy
-
 The initial implementation should not introduce an elaborate transaction manager, locking framework, or bespoke rollback subsystem without a demonstrated requirement.
 
 The project is deliberately file-oriented. Its persistent state consists of readable text documents, making version control a natural mechanism for retaining historical states.
@@ -242,7 +235,6 @@ The intended strategy is to use a version-controlled world directory and create 
 This provides a history of changes and a practical way to inspect, revert, or recover from unwanted modifications.
 
 ### 6.2. World Repository
-
 A world is a directory containing its board documents, object documents, hand documents, containers, and other world-specific Org files.
 
 The world directory should be suitable for management by a version-control system such as Git.
@@ -252,9 +244,7 @@ The implementation should avoid introducing unnecessary external databases or op
 Repository initialization and configuration may be performed by the user or supported by dedicated setup commands.
 
 ### 6.3. Saving and Committing
-
 The intended workflow is:
-
 1. Serialize the current model to the relevant Org documents.
 2. Complete the requested file writes.
 3. If persistence succeeds, create a version-control commit representing the resulting world state.
@@ -267,7 +257,6 @@ The implementation should not assume that a successful Git commit makes an opera
 Version control is the chosen recovery mechanism; it is not a substitute for correct file handling.
 
 ### 6.4. Recovery and Inspection
-
 Users should be able to inspect the history of a world, identify the changes introduced by an operation, and restore an earlier state through ordinary version-control tools.
 
 The package may provide convenience commands for common operations, but it should not unnecessarily hide or replace Git's native capabilities.

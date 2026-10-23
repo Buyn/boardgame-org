@@ -7,6 +7,9 @@
 (find-file-other-frame "./boardgame-org.md")
 (find-file-other-frame "./boardgame-org-interface.md")
 ~/Dev/emacs/boardgame-org/boardgame-org.md
+
+(find-file-other-frame "~/Dev/emacs/boardgame-org/README.org")
+(find-file-other-frame "~/Dev/emacs/boardgame-org/README.md")
 ** 
 
 (find-file-other-frame "~/Dev/emacs/boardgame-org/src.el/boardgame-org-board.el")
@@ -415,7 +418,19 @@ F boardgame-test-stack-consolidation-and-glyph
 
 
 
-*** 
+*** запуск блока
+#+begin_src emacs-lisp
+;; Принудительно перезагружаем пакет в текущей сессии:
+(add-to-list 'load-path (expand-file-name "~/Dev/emacs/boardgame-org/"))
+(load "~/Dev/emacs/boardgame-org/boardgame-org.el" nil t)
+;; Опционально: директория мира по умолчанию
+(setq boardgame-default-world-directory (expand-file-name "~/Dev/emacs/boardgame-world/test"))
+;; Запуск 3-оконного фрейма (доска 80%, лог 80% колонки, статус 20% колонки):
+(boardgame-start)
+#+end_src
+приводит к 
+Executing Emacs-Lisp code block at position 425152...
+load-with-code-conversion: Invalid read syntax: ")", 174, 64
 *** запуск блока
 #+begin_src emacs-lisp
 (add-to-list 'load-path "~/Dev/emacs/boardgame-org/src.el/")
@@ -743,10 +758,42 @@ F boardgame-test-stack-consolidation-and-expansion
 F boardgame-test-stack-consolidation-and-glyph
     Test Section 10.1: stack consolidation removes standalone files and uses ’$’.
     (void-function boardgame-ensure-world-dirs)
-
-
+*** сделай тесты
+и запусти проверку через emacs
 ** dezine
 ** todo
+*** gemini --resume 35378ce7-92f5-4582-9868-553fe8b4987d
+▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+╭──────────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                      │
+│  Agent powering down. Goodbye!                                                       │
+│                                                                                      │
+│  Interaction Summary                                                                 │
+│  Session ID:                 35378ce7-92f5-4582-9868-553fe8b4987d                    │
+│  Tool Calls:                 6 ( ✓ 5 x 1 )                                           │
+│  Success Rate:               83.3%                                                   │
+│  User Agreement:             100.0% (6 reviewed)                                     │
+│                                                                                      │
+│  Performance                                                                         │
+│  Wall Time:                  7h 30m 6s                                               │
+│  Agent Active:               12m 26s                                                 │
+│    » API Time:               12m 26s (99.9%)                                         │
+│    » Tool Time:              498ms (0.1%)                                            │
+│                                                                                      │
+│                                                                                      │
+│  Model Usage                                                                         │
+│  Use /model to view model quota information                                          │
+│                                                                                      │
+│  Model                           Reqs  Input Tokens   Cache Reads Output Tokens      │
+│  ──────────────────────────────────────────────────────────────────────────────────  │
+│  gemini-3.5-flash-lite              4        59,772             0           148      │
+│    ↳ utility_router                 4        59,772             0           148      │
+│  gemini-3.8-flash                  25       121,609        84,609           297      │
+│    ↳ main                          25       121,609        84,609           297      │
+│  To resume this session: gemini --resume 35378ce7-92f5-4582-9868-553fe8b4987d        │
+╰──────────────────────────────────────────────────────────────────────────────────────╯
+
+
 *** описать систему именования создаваемых оргов
 что имя берётся либо от типа обекта + индификатор(изоформат времени и даты до микросекунд, если имакс умеет выдовать микросекунды/тики)+орг.
 либо имя это имя первого раздела(пацифированое стандартными механизмами имакса) + орг.
@@ -770,6 +817,19 @@ F boardgame-test-stack-consolidation-and-glyph
 * RUN
 ** start
 *** src block
+#+begin_src emacs-lisp
+;; Принудительно перезагружаем пакет в текущей сессии:
+(add-to-list 'load-path (expand-file-name "~/Dev/emacs/boardgame-org/"))
+(load "~/Dev/emacs/boardgame-org/boardgame-org.el" nil t)
+
+;; Опционально: директория мира по умолчанию
+(setq boardgame-default-world-directory (expand-file-name "~/Dev/emacs/boardgame-world/test"))
+
+;; Запуск 3-оконного фрейма (доска 80%, лог 80% колонки, статус 20% колонки):
+(boardgame-start)
+#+end_src
+
+
 (load "~/Dev/emacs/boardgame-org/src.el/boardgame-org.el")
 #+begin_src emacs-lisp
 ;; Принудительно перезагружаем пакет в текущей сессии:
