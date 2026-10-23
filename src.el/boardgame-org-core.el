@@ -1,12 +1,12 @@
-;;; boardgame-org-core.el --- Core structures and world configuration for boardgame-org -*- lexical-binding: t; -*-
+;;; boardgame-org-core.el --- Core variables, structs, and tracking for boardgame-org -*- lexical-binding: t; -*-
 
 ;; Author: Buyn <buyn.tex@gmail.com>
 ;; Keywords: games, org, tabletop
 ;; Package-Requires: ((emacs "27.1") (org "9.3"))
 
 ;;; Commentary:
-;; Core configuration, in-memory structures (structs), and Git-based
-;; version control helpers according to boardgame-org.md architecture.
+;; Core configuration, structs, and global variables adhering to
+;; boardgame-org.md and boardgame-org-interface.md.
 
 ;;; Code:
 
@@ -17,86 +17,124 @@
 (defgroup boardgame-org nil
   "Text-based tabletop environment in Emacs with Org-mode persistence."
   :group 'games
-  :prefix "boardgame-org-")
+  :prefix "boardgame-")
 
-(defcustom boardgame-org-world-directory
-  (expand-file-name "~/boardgame-world/")
-  "Default directory containing the boardgame-org world files."
-  :type 'directory
+;;; User Customizations
+
+(defcustom boardgame-default-world-directory nil
+  "Default directory containing the active boardgame world, or nil if unset."
+  :type '(choice (const :tag "Unset" nil) directory)
   :group 'boardgame-org)
 
-(defcustom boardgame-org-default-felt-symbol "."
-  "Default character used to fill empty felt grid cells."
+(defcustom boardgame-default-felt-symbol "."
+  "Default character used to pad empty felt grid cells."
   :type 'string
   :group 'boardgame-org)
 
-(defcustom boardgame-org-auto-commit t
-  "When non-nil, automatically create a Git commit after successful save."
+(defcustom boardgame-board-window-width-percent 80
+  "Percentage of frame width allocated to the board window."
+  :type 'integer
+  :group 'boardgame-org)
+
+(defcustom boardgame-log-window-height-percent 80
+  "Percentage of the right side column height allocated to the log window."
+  :type 'integer
+  :group 'boardgame-org)
+
+(defcustom boardgame-auto-commit t
+  "When non-nil, automatically create a Git commit after a successful save."
   :type 'boolean
   :group 'boardgame-org)
 
-;;; Core Structures
+;;; Global State Variables
 
-(cl-defstruct (boardgame-org-object (:constructor boardgame-org-object-create))
+(defvar boardgame-active-world-directory nil
+  "Path to the currently active world directory.")
+
+(defvar boardgame-current-board-buffer nil
+  "Globally accessible variable identifying the active board buffer.
+Required by Section 4.6 of boardgame-org-interface.md to resolve implicit
+board command targets.")
+
+(defvar boardgame-active-hand-file nil
+  "Relative or absolute file path to the currently active hand Org file.")
+
+;;; Core Structs
+
+(cl-defstruct (boardgame-object (:constructor boardgame-object-create))
   "Represents an independently existing game object."
   id
   name
   glyph
-  type            ; 'card, 'die, 'token, 'pawn, 'container, 'stack
+  type            ; 'token, 'card, 'die, 'marker, 'container, 'stack
   description
+  foreground
+  background
   properties      ; alist of (KEY . VALUE)
-  file-path       ; relative or absolute path to .org file
+  file-path       ; relative path to .org file
   (face-up t)
-  color
   value
   sides           ; for dice
   contained-ids   ; for containers (list of object IDs)
   stacked-items)  ; for stacks (list of alists with consolidated object data)
 
-(cl-defstruct (boardgame-org-placed (:constructor boardgame-org-placed-create))
+(cl-defstruct (boardgame-placed (:constructor boardgame-placed-create))
   "Represents an object placed on the board felt."
   object-id
   x
   y
   (layer 0))
 
-(cl-defstruct (boardgame-org-board (:constructor boardgame-org-board-create))
-  "In-memory representation of a boardgame-org tabletop."
+(cl-defstruct (boardgame-board (:constructor boardgame-board-create))
+  "In-memory representation of a boardgame tabletop."
   id
   name
+  filename        ; filename including extension (e.g. 'main.org')
   (width 16)
   (height 10)
   (default-felt ".")
-  felt-grid       ; vector of rows containing characters
-  placed-objects  ; list of `boardgame-org-placed`
-  file-path)
+  felt-grid       ; 2D vector of characters
+  felt-fg-grid    ; 2D vector of foreground colors (optional)
+  felt-bg-grid    ; 2D vector of background colors (optional)
+  placed-objects  ; list of `boardgame-placed`
+  file-path       ; full or relative path
+  dirty-p)        ; non-nil if unsaved changes exist
 
-(cl-defstruct (boardgame-org-hand (:constructor boardgame-org-hand-create))
+(cl-defstruct (boardgame-hand (:constructor boardgame-hand-create))
   "In-memory representation of a player hand."
   id
   name
   player
-  object-ids      ; list of object IDs in hand
+  object-ids
   file-path)
 
-;;; World Directory and Git Recovery Helpers
+;;; World Directory & File Helpers
 
-(defun boardgame-org-world-file (relative-path)
-  "Return full path to RELATIVE-PATH within `boardgame-org-world-directory`."
-  (expand-file-name relative-path boardgame-org-world-directory))
+(defun boardgame-world-name ()
+  "Return clean world name derived from `boardgame-active-world-directory`."
+  (if boardgame-active-world-directory
+      (file-name-nondirectory (directory-file-name boardgame-active-world-directory))
+    "default-world"))
 
-(defun boardgame-org-ensure-world-dirs ()
-  "Ensure standard subdirectories exist in world directory."
+(defun boardgame-world-file (relative-path)
+  "Return full path to RELATIVE-PATH within `boardgame-active-world-directory`."
+  (unless boardgame-active-world-directory
+    (error "No active world directory selected"))
+  (expand-file-name relative-path boardgame-active-world-directory))
+
+(defun boardgame-ensure-world-dirs ()
+  "Ensure standard subdirectories exist in the active world directory."
   (dolist (dir '("boards" "objects" "stacks" "containers" "hands" "docs"))
-    (let ((target (boardgame-org-world-file dir)))
+    (let ((target (boardgame-world-file dir)))
       (unless (file-directory-p target)
         (make-directory target t)))))
 
-(defun boardgame-org-git-commit (message)
-  "Create a Git commit in the world directory with MESSAGE if under VC."
-  (when (and boardgame-org-auto-commit
-             (file-directory-p (boardgame-org-world-file ".git")))
-    (let ((default-directory boardgame-org-world-directory))
+(defun boardgame-git-commit (message)
+  "Create a Git commit in the active world directory with MESSAGE if under VC."
+  (when (and boardgame-auto-commit
+             boardgame-active-world-directory
+             (file-directory-p (boardgame-world-file ".git")))
+    (let ((default-directory boardgame-active-world-directory))
       (call-process "git" nil nil nil "add" ".")
       (call-process "git" nil nil nil "commit" "-m" message)
       (message "boardgame-org: Committed world state: %s" message))))

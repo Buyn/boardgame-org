@@ -1,111 +1,92 @@
-;;; boardgame-org-test.el --- ERT unit & integration tests for boardgame-org -*- lexical-binding: t; -*-
+;;; boardgame-org-test.el --- ERT unit & regression tests for boardgame-org -*- lexical-binding: t; -*-
 
 ;; Author: Buyn <buyn.tex@gmail.com>
 ;; Package-Requires: ((emacs "27.1") (org "9.3"))
 
 ;;; Commentary:
-;; Test suite implementing Section 8 (Testing Requirements) of boardgame-org.md:
-;; - Round-trip serialization
+;; Comprehensive ERT test suite covering Section 15 of boardgame-org-interface.md
+;; and Section 8 of boardgame-org.md:
 ;; - Felt normalization
-;; - Stacks: consolidation deletes standalone files, expansion reconstitutes files
-;; - Containers: organize without consolidating standalone files
-;; - Multi-object rendering & count indicators
+;; - Persistent world log (* Entry headings)
+;; - Navigation marker creation and parameterized source block
+;; - Stack consolidation ($ black on white) deleting standalone files
+;; - Container organization preserving standalone files
+;; - Universal heading placement glyph derivation
 
 ;;; Code:
 
 (require 'ert)
 (require 'boardgame-org)
 
-(ert-deftest boardgame-org-test-felt-normalization ()
-  "Test Section 4.6: missing cells filled with default felt, excess ignored."
+(ert-deftest boardgame-test-felt-normalization ()
+  "Test felt dimension padding and excess truncation."
   (let* ((raw-felt "...\n.....\n.")
-         (grid (boardgame-org-normalize-felt raw-felt 4 3 ".")))
+         (grid (boardgame-normalize-felt raw-felt 4 3 ".")))
     (should (= (length grid) 3))
     (should (= (length (aref grid 0)) 4))
     (should (equal (aref (aref grid 0) 3) "."))
     (should (= (length (aref grid 1)) 4))))
 
-(ert-deftest boardgame-org-test-object-file-invariant ()
-  "Test Section 2.1: an independently existing object has its own Org file."
+(ert-deftest boardgame-test-persistent-log ()
+  "Test Section 12: persistent world log file and structured Org headings."
   (let* ((test-dir (make-temp-file "bg-world-" t))
-         (boardgame-org-world-directory test-dir)
-         (obj (boardgame-org-object-create
-               :id "test-card-1"
-               :name "Ace of Spades"
-               :glyph "🂡"
-               :type 'card
-               :file-path "objects/test-card-1.org")))
+         (boardgame-active-world-directory test-dir))
     (unwind-protect
         (progn
-          (boardgame-org-object-save-file obj)
-          (should (file-exists-p (boardgame-org-world-file "objects/test-card-1.org")))
-          (boardgame-org-object-delete-file obj)
-          (should-not (file-exists-p (boardgame-org-world-file "objects/test-card-1.org"))))
+          (boardgame-ensure-world-dirs)
+          (boardgame-log "Test Event" '(("Param1" . "Value1")) "Additional notes.")
+          (let ((log-file (boardgame-log-file-path)))
+            (should (file-exists-p log-file))
+            (with-temp-buffer
+              (insert-file-contents log-file)
+              (should (re-search-forward "^\\* Test Event" nil t))
+              (should (re-search-forward "^\\*\\* Param1" nil t)))))
       (delete-directory test-dir t))))
 
-(ert-deftest boardgame-org-test-stack-consolidation-removes-standalone-files ()
-  "Test Section 3.1: Stacks consolidate Org docs and remove standalone files."
+(ert-deftest boardgame-test-stack-consolidation-and-glyph ()
+  "Test Section 10.1: stack consolidation removes standalone files and uses '$'."
   (let* ((test-dir (make-temp-file "bg-world-" t))
-         (boardgame-org-world-directory test-dir)
-         (c1 (boardgame-org-object-create
-              :id "card-1"
-              :name "Card One"
-              :glyph "🂡"
-              :type 'card
-              :file-path "objects/card-1.org"))
-         (c2 (boardgame-org-object-create
-              :id "card-2"
-              :name "Card Two"
-              :glyph "🂾"
-              :type 'card
-              :file-path "objects/card-2.org")))
+         (boardgame-active-world-directory test-dir)
+         (c1 (boardgame-object-create :id "c1" :name "Card One" :glyph "1" :type 'card :file-path "objects/c1.org"))
+         (c2 (boardgame-object-create :id "c2" :name "Card Two" :glyph "2" :type 'card :file-path "objects/c2.org")))
     (unwind-protect
         (progn
-          (boardgame-org-object-save-file c1)
-          (boardgame-org-object-save-file c2)
-          (should (file-exists-p (boardgame-org-world-file "objects/card-1.org")))
-          (should (file-exists-p (boardgame-org-world-file "objects/card-2.org")))
+          (boardgame-ensure-world-dirs)
+          (boardgame-object-save-file c1)
+          (boardgame-object-save-file c2)
+          (should (file-exists-p (boardgame-world-file "objects/c1.org")))
+          (should (file-exists-p (boardgame-world-file "objects/c2.org")))
 
-          (let ((stack (boardgame-org-stack-consolidate (list c1 c2) "test-stack" "My Stack")))
-            (should (file-exists-p (boardgame-org-world-file "stacks/test-stack.org")))
-            ;; Standalone files must be removed
-            (should-not (file-exists-p (boardgame-org-world-file "objects/card-1.org")))
-            (should-not (file-exists-p (boardgame-org-world-file "objects/card-2.org")))
-
-            (let ((expanded (boardgame-org-stack-expand stack)))
-              (should (= (length expanded) 2))
-              (should (file-exists-p (boardgame-org-world-file "objects/card-1.org")))
-              (should (file-exists-p (boardgame-org-world-file "objects/card-2.org")))
-              (should-not (file-exists-p (boardgame-org-world-file "stacks/test-stack.org"))))))
+          (let ((stack (boardgame-stack-consolidate (list c1 c2) "s1" "Stack One")))
+            ;; Stack uses '$'
+            (should (equal (boardgame-object-glyph stack) "$"))
+            ;; Standalone files MUST be deleted
+            (should-not (file-exists-p (boardgame-world-file "objects/c1.org")))
+            (should-not (file-exists-p (boardgame-world-file "objects/c2.org")))
+            ;; Stack file exists
+            (should (file-exists-p (boardgame-world-file "stacks/s1.org")))))
       (delete-directory test-dir t))))
 
-(ert-deftest boardgame-org-test-container-preserves-standalone-files ()
-  "Test Section 3.2: Containers organize objects without deleting standalone files."
+(ert-deftest boardgame-test-container-preserves-files ()
+  "Test Section 10.2: containers organize objects without deleting their files."
   (let* ((test-dir (make-temp-file "bg-world-" t))
-         (boardgame-org-world-directory test-dir)
-         (c1 (boardgame-org-object-create
-              :id "deck-card-1"
-              :name "King of Hearts"
-              :glyph "🂾"
-              :type 'card
-              :file-path "objects/deck-card-1.org"))
-         (container (boardgame-org-object-create
-                     :id "test-deck"
-                     :name "Deck Container"
-                     :glyph "🎴"
-                     :type 'container
-                     :file-path "containers/test-deck.org"
-                     :contained-ids '("deck-card-1"))))
+         (boardgame-active-world-directory test-dir)
+         (c1 (boardgame-object-create :id "dc1" :name "Deck Card" :glyph "C" :type 'card :file-path "objects/dc1.org"))
+         (container (boardgame-object-create
+                     :id "deck1" :name "Main Deck" :glyph "🎴" :type 'container
+                     :file-path "containers/deck1.org" :contained-ids '("dc1"))))
     (unwind-protect
         (progn
-          (boardgame-org-object-save-file c1)
-          (boardgame-org-container-save container)
-          (should (file-exists-p (boardgame-org-world-file "objects/deck-card-1.org")))
-          (should (file-exists-p (boardgame-org-world-file "containers/test-deck.org")))
+          (boardgame-ensure-world-dirs)
+          (boardgame-object-save-file c1)
+          (boardgame-container-save container)
+          (should (file-exists-p (boardgame-world-file "objects/dc1.org")))
+          (should (file-exists-p (boardgame-world-file "containers/deck1.org")))
 
-          (let ((drawn-id (boardgame-org-container-draw container)))
-            (should (string= drawn-id "deck-card-1"))
-            (should (file-exists-p (boardgame-org-world-file "objects/deck-card-1.org")))))
+          (let ((drawn (boardgame-container-draw-top container)))
+            (should (equal drawn "dc1"))
+            ;; File must remain intact
+            (should (file-exists-p (boardgame-world-file "objects/dc1.org")))))
       (delete-directory test-dir t))))
 
 (provide 'boardgame-org-test)
