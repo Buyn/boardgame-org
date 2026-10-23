@@ -17,10 +17,16 @@
 
 ;; Ensure package directory is in `load-path` when loaded via `load` or `load-file`
 (eval-and-compile
-  (let ((dir (file-name-directory (or load-file-name buffer-file-name ""))))
-    (when (and dir (file-directory-p dir) (not (member (file-name-as-directory (expand-file-name dir))
-                                                       (mapcar #'file-name-as-directory load-path))))
-      (add-to-list 'load-path (expand-file-name dir)))))
+  (let* ((this-dir (file-name-directory
+                    (or load-file-name
+                        buffer-file-name
+                        (and (boundp 'byte-compile-current-file) byte-compile-current-file)
+                        default-directory))))
+    (when (and this-dir (file-directory-p this-dir))
+      (let ((clean-dir (file-name-as-directory (expand-file-name this-dir))))
+        (unless (member clean-dir (mapcar #'file-name-as-directory load-path))
+          (add-to-list 'load-path clean-dir))))))
+
 
 (require 'cl-lib)
 (require 'org)

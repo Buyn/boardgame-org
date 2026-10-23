@@ -45,6 +45,10 @@
      :file-path rel-path
      :contained-ids nil)))
 
+;;;###autoload
+(defalias 'boardgame-container-create #'boardgame-create-container)
+
+
 (defun boardgame-container-read-ids (container-obj)
   "Read list of contained object IDs from CONTAINER-OBJ Org file."
   (let* ((rel-path (boardgame-object-file-path container-obj))

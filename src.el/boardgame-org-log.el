@@ -83,7 +83,13 @@ BODY is optional freeform Org text."
              (buffer-live-p boardgame-shared-log-buffer)
              (buffer-modified-p boardgame-shared-log-buffer))
     (with-current-buffer boardgame-shared-log-buffer
-      (save-buffer))))
+      (let ((f (buffer-file-name)))
+        (if f
+            (progn
+              (write-region (point-min) (point-max) f nil 'quiet)
+              (set-buffer-modified-p nil))
+          (save-buffer))))))
+
 
 (provide 'boardgame-org-log)
 ;;; boardgame-org-log.el ends here

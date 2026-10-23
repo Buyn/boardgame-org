@@ -67,7 +67,7 @@ board command targets.")
 
 ;;; Core Structs
 
-(cl-defstruct (boardgame-object (:constructor boardgame-object-create))
+(cl-defstruct (boardgame-object (:constructor boardgame-object--raw-create))
   "Represents an independently existing game object."
   id
   name
@@ -83,6 +83,50 @@ board command targets.")
   sides           ; for dice
   contained-ids   ; for containers (list of object IDs)
   stacked-items)  ; for stacks (list of alists with consolidated object data)
+
+;;;###autoload
+(defun boardgame-object-create (&rest args)
+  "Create and return a `boardgame-object`.
+Supports both keyword arguments:
+  (:id ID :name NAME :glyph GLYPH [:type TYPE ...])
+and positional arguments:
+  (ID NAME GLYPH &optional TYPE FOREGROUND BACKGROUND DESCRIPTION).
+When called with positional arguments, creates the corresponding Org file
+in objects/ if `boardgame-create-object` is available."
+  (if (and args (keywordp (car args)))
+      (apply #'boardgame-object--raw-create args)
+    (let ((id (nth 0 args))
+          (name (nth 1 args))
+          (glyph (nth 2 args))
+          (type (or (nth 3 args) 'token))
+          (fg (nth 4 args))
+          (bg (nth 5 args))
+          (desc (nth 6 args)))
+      (if (and (fboundp 'boardgame-create-object)
+               (not (eq (symbol-function 'boardgame-create-object) #'boardgame-object-create)))
+          (boardgame-create-object id name glyph type fg bg desc)
+        (let* ((rel-path (format "objects/%s.org" id))
+               (full-path (boardgame-world-file rel-path)))
+          (make-directory (file-name-directory full-path) t)
+          (with-temp-file full-path
+            (insert ":PROPERTIES:\n")
+            (insert (format ":ID: %s\n" id))
+            (insert (format ":NAME: %s\n" name))
+            (insert (format ":GLYPH: %s\n" glyph))
+            (insert (format ":TYPE: %s\n" type))
+            (when fg (insert (format ":FOREGROUND: %s\n" fg)))
+            (when bg (insert (format ":BACKGROUND: %s\n" bg)))
+            (insert ":END:\n\n")
+            (insert (format "* %s\n" name))
+            (when desc (insert desc "\n")))
+          (boardgame-object--raw-create
+           :id id :name name :glyph glyph :type type
+           :foreground fg :background bg :description desc
+           :file-path rel-path))))))
+
+;;;###autoload
+(defalias 'boardgame-create-object #'boardgame-object-create)
+
 
 (cl-defstruct (boardgame-placed (:constructor boardgame-placed-create))
   "Represents an object placed on the board felt."
@@ -128,12 +172,40 @@ board command targets.")
     (setq boardgame-active-world-directory (expand-file-name (or boardgame-default-world-directory "world"))))
   (expand-file-name relative-path boardgame-active-world-directory))
 
+;;;###autoload
 (defun boardgame-ensure-world-dirs ()
   "Ensure standard subdirectories exist in the active world directory."
   (dolist (dir '("boards" "objects" "stacks" "containers" "hands" "docs"))
     (let ((target (boardgame-world-file dir)))
       (unless (file-directory-p target)
         (make-directory target t)))))
+
+;;;###autoload
+(defun boardgame-container-create (id name &optional glyph)
+  "Create or wrap permanent container at containers/ID.org."
+  (if (fboundp 'boardgame-create-container)
+      (boardgame-create-container id name glyph)
+    (let* ((rel-path (format "containers/%s.org" id))
+           (full-path (boardgame-world-file rel-path))
+           (gly (or glyph "⊔")))
+      (make-directory (file-name-directory full-path) t)
+      (with-temp-file full-path
+        (insert (format "#+TITLE: Container: %s\n" name))
+        (insert ":PROPERTIES:\n")
+        (insert (format ":ID: %s\n" id))
+        (insert (format ":NAME: %s\n" name))
+        (insert ":TYPE: container\n")
+        (insert (format ":GLYPH: %s\n" gly))
+        (insert ":END:\n\n")
+        (insert "* Contents\n"))
+      (boardgame-object-create
+       :id id
+       :name name
+       :glyph gly
+       :type 'container
+       :file-path rel-path
+       :contained-ids nil))))
+
 
 (defun boardgame-git-commit (message)
   "Create a Git commit in the active world directory with MESSAGE if under VC."

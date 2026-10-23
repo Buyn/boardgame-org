@@ -51,7 +51,7 @@
 ;;; Felt Normalization (Section 4.6)
 
 ;;;###autoload
-(defun boardgame-normalize-felt (raw-text width height default-felt)
+(defun boardgame-normalize-felt (raw-text width height &optional default-felt)
   "Normalize RAW-TEXT felt string to exact 2D vector of WIDTH x HEIGHT.
 Fills missing rows/columns with DEFAULT-FELT and truncates excess characters."
   (let* ((def-char (if (and default-felt (> (length default-felt) 0))
