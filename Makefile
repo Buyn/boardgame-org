@@ -22,8 +22,12 @@ compile: check-deps
 
 test: check-deps compile
 	@echo "Running tests..."
-	$(BATCH) -lERT \
-		--eval "(let ((ert-test-files (list \"test-boardgame-org.el\"))) (ert-run-tests-batch))"
+	$(BATCH) -l package.el \
+		--eval "(package-initialize)" \
+		--eval "(add-to-list 'load-path (expand-file-name \".\" default-directory))" \
+		-l ert \
+		-l test-boardgame-org.el \
+		--eval "(ert-run-tests-batch)"
 
 clean:
 	rm -f *.elc

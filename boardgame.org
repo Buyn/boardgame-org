@@ -364,17 +364,6 @@ The status area must remain distinct from the stream of log messages.
 
 *** DONE убедится что описаны обекты
 и что описана команда открыть орг обекта
-** urgent 
-** TODO in progress
-*** boardgame-org-interface.md
-я добавил дополнительный фаил спецификации. описываюний поведение и интерфейс boardgame-org-interface.md.
-довай перепишим elisp пакет для того чтоб он отражал новые требования указаные в новом файле спецификации. учитываю основной фаили спецификации boardgame-org.md.
-
-*** возми фаилы boardgame-org.md и boardgame-org-interface.md
-и используй их техническую спецификацию для создания на elisp for emacs пакета для emacs.
-и напиши пакета для emacs следуя этому файлу, в папке src.el, на elisp следуя спецификации указаной в файле.
-и сделай фаил readme.org c описанием и инструкций по использованию получившевося пакет. для варианта на тайп скрип сделай только отображения инструкции из файл readme.org.
-
 *** DONE команда
 (load "~/Dev/emacs/boardgame-org/src.el/boardgame-org.el")
 возврашает ошибку
@@ -418,7 +407,7 @@ F boardgame-test-stack-consolidation-and-glyph
 
 
 
-*** запуск блока
+*** DONE запуск блока
 #+begin_src emacs-lisp
 ;; Принудительно перезагружаем пакет в текущей сессии:
 (add-to-list 'load-path (expand-file-name "~/Dev/emacs/boardgame-org/"))
@@ -431,7 +420,7 @@ F boardgame-test-stack-consolidation-and-glyph
 приводит к 
 Executing Emacs-Lisp code block at position 425152...
 load-with-code-conversion: Invalid read syntax: ")", 174, 64
-*** запуск блока
+*** DONE запуск блока
 #+begin_src emacs-lisp
 (add-to-list 'load-path "~/Dev/emacs/boardgame-org/src.el/")
 (require 'boardgame-org)
@@ -758,8 +747,67 @@ F boardgame-test-stack-consolidation-and-expansion
 F boardgame-test-stack-consolidation-and-glyph
     Test Section 10.1: stack consolidation removes standalone files and uses ’$’.
     (void-function boardgame-ensure-world-dirs)
-*** сделай тесты
-и запусти проверку через emacs
+*** DONE do tests
+and run them through emacs to make sure they run correctly.
+add instructions to the readme to run the package and tests.
+
+
+** urgent 
+** TODO in progress
+*** boardgame-org-interface.md
+я добавил дополнительный фаил спецификации. описываюний поведение и интерфейс boardgame-org-interface.md.
+довай перепишим elisp пакет для того чтоб он отражал новые требования указаные в новом файле спецификации. учитываю основной фаили спецификации boardgame-org.md.
+
+*** возми фаилы boardgame-org.md и boardgame-org-interface.md
+и используй их техническую спецификацию для создания на elisp for emacs пакета для emacs.
+и напиши пакета для emacs следуя этому файлу, в папке src.el, на elisp следуя спецификации указаной в файле.
+и сделай фаил readme.org c описанием и инструкций по использованию получившевося пакет. для варианта на тайп скрип сделай только отображения инструкции из файл readme.org.
+
+*** 
+(load "~/Dev/emacs/boardgame-org/boardgame-org.el" nil t)
+запуск с указание на отсутвуюшую папку
+(boardgame-start "~/Dev/emacs/boardgame-world/test")
+вызывает ошибку
+
+Debugger entered--Lisp error: (user-error "Invalid world directory: ~/Dev/emacs/boardgame-world/test")
+  user-error("Invalid world directory: %s" "~/Dev/emacs/boardgame-world/test")
+  (cond ((and world-directory (not (file-directory-p world-directory))) (if (y-or-n-p (format "Directory %s does not exist. Create it?" world-directory)) (boardgame-init-world world-directory) (user-error "World directory not found: %s" world-directory))) ((and world-directory (not (boardgame--world-p world-directory))) (user-error "Invalid world directory: %s" world-directory)) (directory (boardgame-init-world directory)) (t (let* ((default-dir (or default-directory (getenv "HOME"))) (dir (read-directory-name "Select or create world directory: " default-dir default-dir t))) (boardgame-init-world dir))))
+  (let ((directory (or world-directory (and boardgame-default-world-directory (file-directory-p boardgame-default-world-directory) boardgame-default-world-directory)))) (cond ((and world-directory (not (file-directory-p world-directory))) (if (y-or-n-p (format "Directory %s does not exist. Create it?" world-directory)) (boardgame-init-world world-directory) (user-error "World directory not found: %s" world-directory))) ((and world-directory (not (boardgame--world-p world-directory))) (user-error "Invalid world directory: %s" world-directory)) (directory (boardgame-init-world directory)) (t (let* ((default-dir (or default-directory (getenv "HOME"))) (dir (read-directory-name "Select or create world directory: " default-dir default-dir t))) (boardgame-init-world dir)))))
+  boardgame-start("~/Dev/emacs/boardgame-world/test")
+  eval((boardgame-start "~/Dev/emacs/boardgame-world/test") nil)
+  elisp--eval-last-sexp(nil)
+  #f(compiled-function () #<bytecode 0xf723648a316a>)()
+  eval-last-sexp(nil)
+  (if (eq (char-after (point)) 41) (eval-last-sexp nil))
+  (lambda nil (interactive) (move-beginning-of-line nil) (search-forward (char-to-string 41) nil nil nil) (unless (eq (char-after (point)) 41) (backward-char 1)) (if (eq (char-after (point)) 41) (eval-last-sexp nil)))()
+  funcall-interactively((lambda nil (interactive) (move-beginning-of-line nil) (search-forward (char-to-string 41) nil nil nil) (unless (eq (char-after (point)) 41) (backward-char 1)) (if (eq (char-after (point)) 41) (eval-last-sexp nil))))
+  command-execute((lambda nil (interactive) (move-beginning-of-line nil) (search-forward (char-to-string 41) nil nil nil) (unless (eq (char-after (point)) 41) (backward-char 1)) (if (eq (char-after (point)) 41) (eval-last-sexp nil))))
+  recursive-edit()
+  debug(error (void-function set-window-text-width) :backtrace-base eval-expression--debug)
+  eval-expression--debug((void-function set-window-text-width))
+  (set-window-text-width (selected-window) log-width)
+  (let* ((log-width (floor (* (frame-width) (- 1 boardgame-frame-width-ratio))))) (split-window-right) (set-window-buffer (next-window) board-buffer) (set-window-buffer (selected-window) log-buffer) (set-window-text-width (selected-window) log-width) (select-window (get-lru-window)) (set-window-buffer (selected-window) board-buffer) (select-window (get-lru-window)))
+  (progn (select-frame frame 'norecord) (modify-frame-parameters frame '((name . "Boardgame") (width . 120) (height . 40))) (let* ((log-width (floor (* (frame-width) (- 1 boardgame-frame-width-ratio))))) (split-window-right) (set-window-buffer (next-window) board-buffer) (set-window-buffer (selected-window) log-buffer) (set-window-text-width (selected-window) log-width) (select-window (get-lru-window)) (set-window-buffer (selected-window) board-buffer) (select-window (get-lru-window))))
+  (unwind-protect (progn (select-frame frame 'norecord) (modify-frame-parameters frame '((name . "Boardgame") (width . 120) (height . 40))) (let* ((log-width (floor (* (frame-width) (- 1 boardgame-frame-width-ratio))))) (split-window-right) (set-window-buffer (next-window) board-buffer) (set-window-buffer (selected-window) log-buffer) (set-window-text-width (selected-window) log-width) (select-window (get-lru-window)) (set-window-buffer (selected-window) board-buffer) (select-window (get-lru-window)))) (if (frame-live-p old-frame) (progn (select-frame old-frame 'norecord))) (if (buffer-live-p old-buffer) (progn (set-buffer old-buffer))))
+  (let ((old-frame (selected-frame)) (old-buffer (current-buffer))) (unwind-protect (progn (select-frame frame 'norecord) (modify-frame-parameters frame '((name . "Boardgame") (width . 120) (height . 40))) (let* ((log-width (floor (* ... ...)))) (split-window-right) (set-window-buffer (next-window) board-buffer) (set-window-buffer (selected-window) log-buffer) (set-window-text-width (selected-window) log-width) (select-window (get-lru-window)) (set-window-buffer (selected-window) board-buffer) (select-window (get-lru-window)))) (if (frame-live-p old-frame) (progn (select-frame old-frame 'norecord))) (if (buffer-live-p old-buffer) (progn (set-buffer old-buffer)))))
+  (let ((frame (make-frame)) (board-buffer (get-buffer-create "*Boardgame Board*")) (log-buffer (get-buffer-create "*Boardgame Log*"))) (setq boardgame-game-frame frame) (let ((old-frame (selected-frame)) (old-buffer (current-buffer))) (unwind-protect (progn (select-frame frame 'norecord) (modify-frame-parameters frame '((name . "Boardgame") (width . 120) (height . 40))) (let* ((log-width (floor ...))) (split-window-right) (set-window-buffer (next-window) board-buffer) (set-window-buffer (selected-window) log-buffer) (set-window-text-width (selected-window) log-width) (select-window (get-lru-window)) (set-window-buffer (selected-window) board-buffer) (select-window (get-lru-window)))) (if (frame-live-p old-frame) (progn (select-frame old-frame 'norecord))) (if (buffer-live-p old-buffer) (progn (set-buffer old-buffer))))))
+  boardgame-open-frame()
+  boardgame-init-world("/home/buyn/Dev/emacs/boardgame-world/test")
+  (cond ((and world-directory (not (file-directory-p world-directory))) (if (y-or-n-p (format "Directory %s does not exist. Create it?" world-directory)) (boardgame-init-world world-directory) (user-error "World directory not found: %s" world-directory))) ((and world-directory (not (boardgame--world-p world-directory))) (user-error "Invalid world directory: %s" world-directory)) (directory (boardgame-init-world directory)) (t (let* ((default-dir (or default-directory (getenv "HOME"))) (dir (read-directory-name "Select or create world directory: " default-dir default-dir t))) (boardgame-init-world dir))))
+  (let ((directory (or world-directory (and boardgame-default-world-directory (file-directory-p boardgame-default-world-directory) boardgame-default-world-directory)))) (cond ((and world-directory (not (file-directory-p world-directory))) (if (y-or-n-p (format "Directory %s does not exist. Create it?" world-directory)) (boardgame-init-world world-directory) (user-error "World directory not found: %s" world-directory))) ((and world-directory (not (boardgame--world-p world-directory))) (user-error "Invalid world directory: %s" world-directory)) (directory (boardgame-init-world directory)) (t (let* ((default-dir (or default-directory (getenv "HOME"))) (dir (read-directory-name "Select or create world directory: " default-dir default-dir t))) (boardgame-init-world dir)))))
+  boardgame-start()
+  eval((boardgame-start) nil)
+  elisp--eval-last-sexp(nil)
+  #f(compiled-function () #<bytecode 0xf723648a316a>)()
+  eval-last-sexp(nil)
+  (if (eq (char-after (point)) 41) (eval-last-sexp nil))
+  (lambda nil (interactive) (move-beginning-of-line nil) (search-forward (char-to-string 41) nil nil nil) (unless (eq (char-after (point)) 41) (backward-char 1)) (if (eq (char-after (point)) 41) (eval-last-sexp nil)))()
+  funcall-interactively((lambda nil (interactive) (move-beginning-of-line nil) (search-forward (char-to-string 41) nil nil nil) (unless (eq (char-after (point)) 41) (backward-char 1)) (if (eq (char-after (point)) 41) (eval-last-sexp nil))))
+  command-execute((lambda nil (interactive) (move-beginning-of-line nil) (search-forward (char-to-string 41) nil nil nil) (unless (eq (char-after (point)) 41) (backward-char 1)) (if (eq (char-after (point)) 41) (eval-last-sexp nil))))
+
+  
+Ожидаемое поведение что оно создаст папку в указаном месте если её нет, или откроет мир если он есть.
+
 ** dezine
 ** todo
 *** gemini --resume 35378ce7-92f5-4582-9868-553fe8b4987d
@@ -817,6 +865,10 @@ F boardgame-test-stack-consolidation-and-glyph
 * RUN
 ** start
 *** src block
+
+(load "~/Dev/emacs/boardgame-org/boardgame-org.el")
+(boardgame-start)
+
 #+begin_src emacs-lisp
 ;; Принудительно перезагружаем пакет в текущей сессии:
 (add-to-list 'load-path (expand-file-name "~/Dev/emacs/boardgame-org/"))
@@ -826,7 +878,7 @@ F boardgame-test-stack-consolidation-and-glyph
 (setq boardgame-default-world-directory (expand-file-name "~/Dev/emacs/boardgame-world/test"))
 
 ;; Запуск 3-оконного фрейма (доска 80%, лог 80% колонки, статус 20% колонки):
-(boardgame-start)
+(boardgame-start "~/Dev/emacs/boardgame-world/test")
 #+end_src
 
 

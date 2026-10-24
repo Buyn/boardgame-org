@@ -1,0 +1,4 @@
+* World Log for boardgame-org
+
+** Initial Log
+

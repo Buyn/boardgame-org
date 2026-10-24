@@ -108,7 +108,7 @@ board argument is provided.")
 
 (defun boardgame--normalize-path (path)
   "Return the canonicalized absolute name of PATH."
-  (expand-file-name (file-truename path)))
+  (expand-file-name path))
 
 (defun boardgame--ensure-dir (directory)
   "Ensure DIRECTORY exists, creating it if necessary."
@@ -203,10 +203,12 @@ Creates the world directory structure and opens the game frame."
   ;; Open or create log file
   (let* ((world-name (boardgame--world-name directory))
          (log-file (expand-file-name (boardgame--log-filename world-name) directory))
-         (buffer (get-buffer-create boardgame-side-log-buffer)))
+         (buffer-name (format "*Boardgame Log: %s*" world-name))
+         (buffer (get-buffer-create buffer-name)))
     (with-current-buffer buffer
       (unless (file-exists-p log-file)
-        (insert (format "* World Log for %s\n\n" world-name))
+        (insert (format "* World Log for %s\n\n" world-name)
+                (format "** Initial Log\n\n"))
         (write-region (point-min) (point-max) log-file)))
     (setq boardgame-side-log-buffer buffer))
   
@@ -293,8 +295,9 @@ If that is also nil or invalid, prompt the user for world selection."
           (boardgame-init-world world-directory)
         (user-error "World directory not found: %s" world-directory)))
       
-     ((and world-directory (not (boardgame--world-p world-directory)))
-      (user-error "Invalid world directory: %s" world-directory))
+     ;; Directory exists but not yet initialized as world - create it
+     ((and world-directory (file-directory-p world-directory))
+      (boardgame-init-world world-directory))
       
      ;; Use default directory
      (directory
