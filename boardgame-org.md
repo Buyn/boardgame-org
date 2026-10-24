@@ -1,5 +1,4 @@
 # `boardgame.org` — Architecture Clarifications and Implementation Principles
-
 **Status:** Normative architectural decisions  
 **Language:** English  
 **Implementation language:** Emacs Lisp  
