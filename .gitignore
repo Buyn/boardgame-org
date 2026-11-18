@@ -27,3 +27,4 @@ boardgame-load-*
 
 # Auto-save
 .auto-save-list
+/boardgame.org_archive
