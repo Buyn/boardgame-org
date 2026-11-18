@@ -76,14 +76,14 @@ curl -fsSL https://antigravity.google/cli/install.sh | bash
 
 
 agy
-*** да стоит это явно прописать в проекте
+*** DONE да стоит это явно прописать в проекте
 добавив туда явный пункт про архитектуру загрузки через главный файл и единый `(provide 'boardgame)`.
 думаешь это нужно добавить в boardgame-implementation-plan.md а не в другой фаил?
 и проверь что учазано про тесты. что для тестирования должно использоватся ert. и как пример
 (load-file "~/Dev/emacs/boardgame-org/test-boardgame-org.el")
 (ert "^boardgame-test")
 ?
-*** 
+*** ert
 #+begin_src emacs-lisp 
 (load "~/Dev/emacs/boardgame-org/boardgame-org.el")
 (load-file "~/Dev/emacs/boardgame-org/test-boardgame-org.el")
@@ -145,20 +145,38 @@ F boardgame-test-stack-consolidation-and-glyph
             (message "Object created: %s" file))))
        (t) nil "Create a new object with NAME." "sObject name: "]
      7)
-*** 
+*** ert
 #+begin_src emacs-lisp 
-(load "~/Dev/emacs/boardgame-org/boardgame-org.el")
-(load-file "~/Dev/emacs/boardgame-org/test-boardgame-org.el")
+(load "/home/buyn/Dev/emacs/boardgame-org/boardgame.el")
+(load-file "test-boardgame-org.el")
 (ert "^boardgame-test")
 #+end_src
-*** boardgame-org-interface.md
+*** DONE boardgame-org-interface.md
 я добавил дополнительный фаил спецификации. описываюний поведение и интерфейс boardgame-org-interface.md.
 довай перепишим elisp пакет для того чтоб он отражал новые требования указаные в новом файле спецификации. учитываю основной фаили спецификации boardgame-org.md.
 
-*** возми фаилы boardgame-org.md и boardgame-org-interface.md
+*** DONE возми фаилы boardgame-org.md и boardgame-org-interface.md
 и используй их техническую спецификацию для создания на elisp for emacs пакета для emacs.
 и напиши пакета для emacs следуя этому файлу, в папке src.el, на elisp следуя спецификации указаной в файле.
 и сделай фаил readme.org c описанием и инструкций по использованию получившевося пакет. для варианта на тайп скрип сделай только отображения инструкции из файл readme.org.
+
+*** DONE используй файлы 
+boardgame-org.md
+boardgame-org-interface.md
+boardgame-implementation-plan.md
+реализуй этап
+### Stage 1: Core Package Infrastructure, Dedicated Frame, Window Layout, and Buffer Stubs
+описаный в файле boardgame-implementation-plan.md
+
+
+*** используй файлы 
+boardgame-org.md
+boardgame-org-interface.md
+boardgame-implementation-plan.md
+реализуй этап
+### Stage 1: Core Package Infrastructure, Dedicated Frame, Window Layout, and Buffer Stubs
+описаный в файле boardgame-implementation-plan.md
+
 
 ** dezine
 ** todo
