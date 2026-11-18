@@ -1,32 +1,90 @@
 # `boardgame.org` Implementation Roadmap and Stage-by-Stage Verification Plan
-
 > **Specification Relationship & Context:** This document serves as the normative engineering implementation plan for the `boardgame.org` tabletop game engine. It is an integral companion specification directly derived from and bound to two foundational architecture documents:
-> 1. **`boardgame-org.md`** (*Architecture Clarifications and Implementation Principles*): Defines core data models, Org-mode file persistence invariants, stack consolidation versus container organization, and Git-based version control semantics.
+> 1. **`boardgame-org.md`** (*Architecture Clarifications and Implementation Principles*): Defines core data models, Org-mode file persistence invariants, stack consolidation versus container organization, modular code separation principles, and Git-based version control semantics.
 > 2. **`boardgame-org-interface.md`** (*User Interface and Observable Behavior Specification*): Defines user-facing frame layouts, buffer behaviors, non-wrapping navigation, window splitting, interactive drawing modes, and log tracking.
 > 
-> In accordance with the project architecture, `boardgame-org-interface.md` takes precedence for user-visible command and window behaviors, while `boardgame-org.md` governs underlying file structures and persistence invariants.
+> In accordance with the project architecture, `boardgame-org-interface.md` takes precedence for user-visible command and window behaviors, while `boardgame-org.md` governs underlying file structures, module loading semantics, and persistence invariants.
 
 ---
 
-## 1. Executive Implementation Strategy & Verification Framework
-
+## 1. Executive Implementation Strategy, Module Architecture & Verification Framework
+### 1.1. Development Methodology: Stub-Driven Major Mode Construction
 The development of `boardgame.org` is structured into eight sequential, modular stages. To maintain high code quality and prevent UI regressions in Emacs, the implementation follows a stub-driven major mode development methodology. 
 
 Rather than attempting to build file parsing and rendering simultaneously, Stage 1 establishes a fully functional, dedicated Emacs frame with buffer stubs and window splitting. Subsequent stages replace these stubs with live data structures, parser logic, rendering engines, and interactive command sets.
 
-Every stage includes a mandatory **Definition of Done (DoD)** anchored in automated testing. Testing is conducted using the standard Emacs Lisp Regression Testing (**ERT**) framework (`ert.el`). A stage is considered complete only when all unit tests (verifying isolated functions and data transformations) and integration tests (verifying frame, window, buffer, and file system interactions) execute with zero failures.
+### 1.2. Module Architecture & Single-Feature Loading Protocol
+In compliance with `boardgame-org.md` §7 (*Implementation Quality Requirements*), the codebase is partitioned into distinct Emacs Lisp files corresponding to functional responsibilities (`boardgame-data.el`, `boardgame-serialize.el`, `boardgame-window.el`, `boardgame-draw.el`, etc.). 
+
+However, to preserve idiomatic Emacs Lisp package encapsulation:
+* **No Internal `provide` Calls:** Individual component files (e.g., `boardgame-window.el`, `boardgame-draw.el`) must **not** execute independent `(provide 'boardgame-window)` feature registrations. Internal files represent private module boundaries of a single package.
+* **Root File Orchestration:** The root file `boardgame.el` acts as the single master entry point. It sequentially loads all internal module files using explicit `load` calls (or relative `require` statements within the package directory).
+* **Single Public Feature:** The root file `boardgame.el` is the **only** file in the project that issues `(provide 'boardgame)`. External configuration and user init files load the entire engine cleanly via a single `(require 'boardgame)` declaration.
+
+```elisp
+;; --- Sample Structure of Main Entry Point: boardgame.el ---
+
+(defgroup boardgame nil
+  "Text-based tabletop game engine for Emacs using Org-mode."
+  :group 'games)
+
+;; Internal module loading (sequential loading of internal components)
+(load (expand-file-name "boardgame-mode" (file-name-directory load-file-name)) nil t)
+(load (expand-file-name "boardgame-window" (file-name-directory load-file-name)) nil t)
+(load (expand-file-name "boardgame-data" (file-name-directory load-file-name)) nil t)
+(load (expand-file-name "boardgame-serialize" (file-name-directory load-file-name)) nil t)
+(load (expand-file-name "boardgame-world" (file-name-directory load-file-name)) nil t)
+(load (expand-file-name "boardgame-log" (file-name-directory load-file-name)) nil t)
+(load (expand-file-name "boardgame-status" (file-name-directory load-file-name)) nil t)
+(load (expand-file-name "boardgame-board" (file-name-directory load-file-name)) nil t)
+(load (expand-file-name "boardgame-render" (file-name-directory load-file-name)) nil t)
+(load (expand-file-name "boardgame-object" (file-name-directory load-file-name)) nil t)
+(load (expand-file-name "boardgame-draw" (file-name-directory load-file-name)) nil t)
+(load (expand-file-name "boardgame-hand" (file-name-directory load-file-name)) nil t)
+(load (expand-file-name "boardgame-stack" (file-name-directory load-file-name)) nil t)
+(load (expand-file-name "boardgame-container" (file-name-directory load-file-name)) nil t)
+(load (expand-file-name "boardgame-marker" (file-name-directory load-file-name)) nil t)
+(load (expand-file-name "boardgame-commands" (file-name-directory load-file-name)) nil t)
+(load (expand-file-name "boardgame-git" (file-name-directory load-file-name)) nil t)
+
+;; Primary interactive entry point
+(defun boardgame-start (&optional world-directory)
+  "Start the boardgame.org engine in a dedicated frame."
+  (interactive)
+  (boardgame-window-initialize world-directory))
+
+;; Sole public feature provision
+(provide 'boardgame)
+```
+
+### 1.3. Verification Standard & ERT Test Execution Protocol
+Every stage includes a mandatory **Definition of Done (DoD)** anchored in automated testing using the standard Emacs Lisp Regression Testing (**ERT**) framework (`ert.el`). 
+
+Testing must cover both unit tests (verifying isolated functions, regex parsers, and data transformations) and integration tests (verifying frame, window, buffer, and file system interactions).
+
+Test suites reside in a dedicated test file `test-boardgame-org.el` (and associated stage test suites). Developers and CI pipelines run and evaluate tests using standard Emacs ERT commands:
+
+```elisp
+;; --- ERT Test Suite Loading & Execution Protocol ---
+
+;; 1. Load the test suite file into the running Emacs session
+(load-file "~/Dev/emacs/boardgame-org/test-boardgame-org.el")
+
+;; 2. Run all test cases matching the boardgame test selector prefix
+(ert "^boardgame-test")
+```
+
+A stage is considered complete **only** when executing `(ert "^boardgame-test")` produces zero failures and zero unhandled errors.
 
 ---
 
 ## 2. Stage-by-Stage Implementation Plan
-
 ### Stage 1: Core Package Infrastructure, Dedicated Frame, Window Layout, and Buffer Stubs
-
 #### Strategic Objective
 Establish the foundational Emacs Lisp package structure, major modes, dedicated game frame management, and initial 80/20 window layout using temporary buffer stubs.
 
 #### Elisp Package Modules
-* `boardgame.el`: Core package entry point, global custom variables, and main startup commands.
+* `boardgame.el`: Core package entry point, global custom variables, master module loading, and `(provide 'boardgame)`.
 * `boardgame-mode.el`: Major mode definitions (`boardgame-board-mode`, `boardgame-log-mode`, `boardgame-status-mode`).
 * `boardgame-window.el`: Dedicated frame creation, window splitting logic, and buffer layout management.
 
@@ -47,7 +105,6 @@ Establish the foundational Emacs Lisp package structure, major modes, dedicated 
 ---
 
 ### Stage 2: In-Memory Data Model, Parsing, and Org File Serialization
-
 #### Strategic Objective
 Implement the in-memory Lisp data structures representing the game board, parse Org-mode documents into active game states, and guarantee lossless round-trip serialization.
 
@@ -69,7 +126,6 @@ Implement the in-memory Lisp data structures representing the game board, parse 
 ---
 
 ### Stage 3: World Management, Session State, and Unified Logging
-
 #### Strategic Objective
 Manage world directory selection, implement world initialization, track active board buffers across frames, and link a single shared log buffer to the active world session.
 
@@ -92,7 +148,6 @@ Manage world directory selection, implement world initialization, track active b
 ---
 
 ### Stage 4: Board Rendering, Object Stacking, and Non-Wrapping Navigation
-
 #### Strategic Objective
 Render in-memory game state into the board buffer, implement object visual layering with stack indicators, and enable smooth, non-wrapping cursor movement and scrolling.
 
@@ -116,7 +171,6 @@ Render in-memory game state into the board buffer, implement object visual layer
 ---
 
 ### Stage 5: Drawing Mode (Felt Layer) and Text Overwrite Mode
-
 #### Strategic Objective
 Implement a ZZT-style interactive Drawing Mode for direct felt manipulation without disrupting object files, along with an Overwrite Text Mode.
 
@@ -136,7 +190,6 @@ Implement a ZZT-style interactive Drawing Mode for direct felt manipulation with
 ---
 
 ### Stage 6: Hands, Stacks, and Permanent Containers
-
 #### Strategic Objective
 Implement distinct file persistence and organizational semantics for player Hands, consolidated Stacks, and permanent Containers.
 
@@ -158,7 +211,6 @@ Implement distinct file persistence and organizational semantics for player Hand
 ---
 
 ### Stage 7: Navigation Markers, Code Execution, and Interactive Commands
-
 #### Strategic Objective
 Implement cross-board navigation markers, absolute movement commands, and interactive Org-Babel code block execution.
 
@@ -179,7 +231,6 @@ Implement cross-board navigation markers, absolute movement commands, and intera
 ---
 
 ### Stage 8: Version Control (Git), Error Recovery, and End-to-End Integration
-
 #### Strategic Objective
 Integrate automated Git version control for world history, implement resilient error handling, and execute the complete ERT test suite.
 
@@ -195,7 +246,7 @@ Integrate automated Git version control for world history, implement resilient e
 #### Definition of Done & ERT Verification Suite
 * **Unit Test 8.1 (`boardgame-test-git-commit-trigger`):** Save a board buffer in a Git-tracked test world and verify that `git log` reflects a new commit containing the modified board file.
 * **Integration Test 8.2 (`boardgame-test-corrupted-org-recovery`):** Attempt to load an intentionally malformed Org board file. Verify that the engine catches the error, logs a message to the status window, and keeps the dedicated game frame stable.
-* **Master Integration Test 8.3 (`boardgame-test-full-suite-pass`):** Execute `ert` against all test selectors in `boardgame-tests.el` and verify 100% pass rate across all unit and integration tests.
+* **Master Integration Test 8.3 (`boardgame-test-full-suite-pass`):** Execute `ert` against all test selectors matching `"^boardgame-test"` and verify a 100% pass rate across all unit and integration tests.
 
 ---
 
@@ -204,6 +255,7 @@ To ensure complete alignment with `boardgame-org.md` and `boardgame-org-interfac
 
 | Specification Invariant | Source Specification | Implementation Stage | Primary Elisp Module | ERT Verification Test |
 | :--- | :--- | :--- | :--- | :--- |
+| Single Public Feature (`provide 'boardgame`) | `boardgame-org.md` §7 | Stage 1 | `boardgame.el` | `boardgame-test-buffer-modes` |
 | Dedicated Game Frame & 80/20 Layout | `boardgame-org-interface.md` §4.1–4.2 | Stage 1 | `boardgame-window.el` | `boardgame-test-frame-initialization` |
 | Org-Mode Document Serialization | `boardgame-org.md` §4.1–4.2 | Stage 2 | `boardgame-serialize.el` | `boardgame-test-roundtrip-serialization` |
 | Shared World Log (`<world>-log.org`) | `boardgame-org-interface.md` §4.5 | Stage 3 | `boardgame-log.el` | `boardgame-test-multi-board-shared-log` |

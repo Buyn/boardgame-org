@@ -14,6 +14,8 @@
 cd ~/Dev/emacs/boardgame-org/
 
 file:///home/buyn/Downloads/boardgame-implementation-plan.md
+(find-file-other-frame "/home/buyn/Downloads/boardgame-implementation-plan-v2.md")
+
 mv /home/buyn/Downloads/boardgame-implementation-plan.md /home/buyn/Dev/emacs/boardgame-org/boardgame-implementation-plan.md
 
 (find-file-other-frame "~/Dev/emacs/boardgame-org/README.md")
@@ -53,14 +55,14 @@ mv /home/buyn/Downloads/boardgame-implementation-plan.md /home/buyn/Dev/emacs/bo
 ** DONE done
 ** urgent 
 ** TODO in progress
-*** довай сделаем план реализации проекта
+*** DONE довай сделаем план реализации проекта
 на сколько этапов стоит разделить проекст?
 дополнительно в плане нужно указать что это код на еслисп для имакса и каждый этап должен содржать тесты, выполение которые означает завершение этапа.
-*** Несогласен
+*** DONE Несогласен
 **** думаю нужно добавить дополнительный этап.
 **** думаю первым этапом должно бывать создание самого фрема мода.
 тоесть делсить фрейм на заданые окна. используя нужные буферы пока как заглушки(для вещей которые будут описаны в других этапах).
-*** а почему ты разделил это на отдельные файлы?
+*** DONE а почему ты разделил это на отдельные файлы?
 там где в описание было такое требование?(возможно это и не плохая идея.)
 только разделив жто на файлы\модул загружать думаю их лучше через лоад а неделать провайд, поскольку это всё один проект, который должен грухится одним куском. И провайдится должен только проект целеком.
 *** DONE Установить антиграв КЛаЙ 
@@ -74,7 +76,13 @@ curl -fsSL https://antigravity.google/cli/install.sh | bash
 
 
 agy
-
+*** да стоит это явно прописать в проекте
+добавив туда явный пункт про архитектуру загрузки через главный файл и единый `(provide 'boardgame)`.
+думаешь это нужно добавить в boardgame-implementation-plan.md а не в другой фаил?
+и проверь что учазано про тесты. что для тестирования должно использоватся ert. и как пример
+(load-file "~/Dev/emacs/boardgame-org/test-boardgame-org.el")
+(ert "^boardgame-test")
+?
 *** 
 #+begin_src emacs-lisp 
 (load "~/Dev/emacs/boardgame-org/boardgame-org.el")
