@@ -24,9 +24,9 @@ mv /home/buyn/Downloads/boardgame-implementation-plan.md /home/buyn/Dev/emacs/bo
 (find-file-other-frame "~/Dev/emacs/boardgame-org/boardgame-mode.el")
 (find-file-other-frame "~/Dev/emacs/boardgame-org/boardgame-window.el")
 (find-file-other-frame "~/Dev/emacs/boardgame-org/boardgame.el")
-
 (find-file-other-frame "~/Dev/emacs/boardgame-org/boardgame-serialize.el")
 (find-file-other-frame "~/Dev/emacs/boardgame-org/boardgame-data.el")
+
 ** tests boardgame-org
 (find-file-other-frame "~/Dev/emacs/boardgame-org/test-boardgame-org.el")
 ** arhiv
@@ -111,7 +111,13 @@ boardgame-implementation-plan.md
 
 ** urgent 
 ** TODO in progress
-*** TODO используй файлы
+*** Туду используй файлы
+@boardgame-org.md @boardgame-org-interface.md @boardgame-implementation-plan.md
+implement the stage
+### Stage 4: Board Rendering, Object Stacking, Root Test World Setup, and Non-Wrapping Navigation
+described in the file @boardgame-implementation-plan.md
+
+*** DONE используй файлы
 /compact
 /model cloud
 @boardgame-org.md @boardgame-org-interface.md @boardgame-implementation-plan.md
