@@ -77,13 +77,18 @@ When nil, the user is prompted to select or create a world upon startup."
   (let ((file (expand-file-name module-name boardgame--directory)))
     (load file nil t)))
 
-;; Internal module loading for Stages 1 & 2
+;; Internal module loading for Stages 1, 2 & 3
 (boardgame--load-module "boardgame-mode")
 (boardgame--load-module "boardgame-window")
 (boardgame--load-module "boardgame-data")
 (boardgame--load-module "boardgame-serialize")
+(boardgame--load-module "boardgame-world")
+(boardgame--load-module "boardgame-log")
+(boardgame--load-module "boardgame-status")
 
 (declare-function boardgame-window-initialize "boardgame-window" (&optional world-directory))
+(declare-function boardgame-world-resolve-and-activate "boardgame-world" (&optional world-dir))
+(declare-function boardgame-log-get-buffer "boardgame-log" (world-dir))
 
 ;; -----------------------------------------------------------------------------
 ;; Primary Interactive Entry Point
@@ -93,10 +98,11 @@ When nil, the user is prompted to select or create a world upon startup."
 (defun boardgame-start (&optional world-directory)
   "Start the boardgame.org engine in a dedicated frame.
 If WORLD-DIRECTORY is specified, activate that world directory.
-Otherwise, use `boardgame-default-world-directory' or prompt the user.
-Spawns a dedicated Emacs frame, preserving existing user frames and workspaces."
+Otherwise use `boardgame-default-world-directory' or prompt.
+Spawns a dedicated frame, preserving existing user frames."
   (interactive)
-  (boardgame-window-initialize world-directory))
+  (let ((dir (boardgame-world-resolve-and-activate world-directory)))
+    (boardgame-window-initialize dir)))
 
 ;; -----------------------------------------------------------------------------
 ;; Sole Public Feature Provision

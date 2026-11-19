@@ -41,8 +41,7 @@
 (declare-function boardgame-start "boardgame")
 
 ;; Stage 2 forward declarations
-(declare-function boardgame-board-create "boardgame-data")
-(declare-function boardgame-board-p "boardgame-data")
+(declare-function boardgame-board-create "boardgame-data")(declare-function boardgame-board-p "boardgame-data")
 (declare-function boardgame-board-name "boardgame-data")
 (declare-function boardgame-board-width "boardgame-data")
 (declare-function boardgame-board-height "boardgame-data")
@@ -84,7 +83,10 @@
   (should-not (featurep 'boardgame-mode))
   (should-not (featurep 'boardgame-window))
   (should-not (featurep 'boardgame-data))
-  (should-not (featurep 'boardgame-serialize)))
+  (should-not (featurep 'boardgame-serialize))
+  (should-not (featurep 'boardgame-world))
+  (should-not (featurep 'boardgame-log))
+  (should-not (featurep 'boardgame-status)))
 
 ;; -----------------------------------------------------------------------------
 ;; Stage 1 Tests
@@ -474,5 +476,149 @@
         (delete-file temp-file))
       (when (buffer-live-p temp-buffer)
         (kill-buffer temp-buffer)))))
+
+;; Stage 3 forward declarations
+(declare-function boardgame-world-name "boardgame-world" (world-dir))
+(declare-function boardgame-world-log-filename "boardgame-world" (world-dir))
+(declare-function boardgame-world-valid-p "boardgame-world" (world-dir))
+(declare-function boardgame-world-activate "boardgame-world" (world-dir))
+(declare-function boardgame-world-resolve-board "boardgame-world"
+                  (explicit-buffer))
+(declare-function boardgame-world-set-active-board "boardgame-world"
+                  (buffer &optional frame))
+(declare-function boardgame-log-get-buffer "boardgame-log" (world-dir))
+(declare-function boardgame-log-buffer-name "boardgame-log" (world-dir))
+(declare-function boardgame-log-append "boardgame-log"
+                  (message &optional world-dir source-name))
+(declare-function boardgame-log-current-buffer "boardgame-log" ())
+(declare-function boardgame-log-forget-world "boardgame-log" (world-dir))
+(declare-function boardgame-status-update "boardgame-status"
+                  (&optional x y mode-label object-info frame))
+(declare-function boardgame-status-clear "boardgame-status" (&optional frame))
+(declare-function boardgame-status--build-content "boardgame-status"
+                  (x y mode-label object-info world-dir))
+
+;; -----------------------------------------------------------------------------
+;; Stage 3 Tests: World Management, Session State, and Unified Logging
+;; -----------------------------------------------------------------------------
+
+(ert-deftest boardgame-test-log-filename-resolution ()
+  "Unit Test 3.1: Log path resolves to <world-path>/<world-name>-log.org."
+  ;; Test 1: Simple directory path
+  (let* ((world-dir "/tmp/my-world")
+         (expected "/tmp/my-world/my-world-log.org")
+         (result (boardgame-world-log-filename world-dir)))
+    (should (string= result expected)))
+
+  ;; Test 2: Trailing slash is handled correctly
+  (let* ((world-dir "/tmp/dungeon-quest/")
+         (result (boardgame-world-log-filename world-dir)))
+    (should (string= result
+                     "/tmp/dungeon-quest/dungeon-quest-log.org")))
+
+  ;; Test 3: Nested path resolves correctly
+  (let* ((world-dir "/home/user/games/pirate-adventure")
+         (result (boardgame-world-log-filename world-dir)))
+    (should (string=
+             result
+             "/home/user/games/pirate-adventure/pirate-adventure-log.org")))
+
+  ;; Test 4: World name extraction
+  (should (string= (boardgame-world-name "/tmp/test-world") "test-world"))
+  (should (string= (boardgame-world-name "/tmp/test-world/") "test-world"))
+
+  ;; Test 5: Log buffer name follows *<world-name>-log* pattern
+  (should (string= (boardgame-log-buffer-name "/tmp/test-world")
+                   "*test-world-log*")))
+
+(ert-deftest boardgame-test-active-board-precedence ()
+  "Unit Test 3.2: Active board resolution respects explicit > frame > global."
+  (let ((buf-explicit (generate-new-buffer "*boardgame-test-explicit*"))
+        (buf-global (generate-new-buffer "*boardgame-test-global*"))
+        (saved-current boardgame-current-board-buffer))
+    (unwind-protect
+        (progn
+          ;; Set up global fallback
+          (setq boardgame-current-board-buffer buf-global)
+          ;; Clear any frame association
+          (set-frame-parameter (selected-frame)
+                               'boardgame-active-board-buffer nil)
+
+          ;; 1. Explicit live buffer: returns explicit buffer
+          (should (eq (boardgame-world-resolve-board buf-explicit)
+                      buf-explicit))
+
+          ;; 2. With nil explicit: returns global fallback
+          (should (eq (boardgame-world-resolve-board nil) buf-global))
+
+          ;; 3. Frame-associated buffer takes precedence over global
+          (set-frame-parameter (selected-frame)
+                               'boardgame-active-board-buffer buf-explicit)
+          (should (eq (boardgame-world-resolve-board nil) buf-explicit))
+
+          ;; 4. When explicit is dead: does not return it
+          (kill-buffer buf-explicit)
+          (set-frame-parameter (selected-frame)
+                               'boardgame-active-board-buffer nil)
+          (should (eq (boardgame-world-resolve-board nil) buf-global))
+
+          ;; 5. When both dead: returns nil
+          (kill-buffer buf-global)
+          (setq boardgame-current-board-buffer nil)
+          (should-not (boardgame-world-resolve-board nil)))
+
+      ;; Cleanup
+      (when (buffer-live-p buf-explicit) (kill-buffer buf-explicit))
+      (when (buffer-live-p buf-global) (kill-buffer buf-global))
+      (set-frame-parameter (selected-frame)
+                           'boardgame-active-board-buffer nil)
+      (setq boardgame-current-board-buffer saved-current))))
+
+(ert-deftest boardgame-test-multi-board-shared-log ()
+  "Integration Test 3.3: Two boards share one log buffer for the same world."
+  (let* ((world-dir (make-temp-file "boardgame-test-world-" t))
+         (buf-board-a (generate-new-buffer "*boardgame-test-board-a*"))
+         (buf-board-b (generate-new-buffer "*boardgame-test-board-b*"))
+         (log-buf nil))
+    (unwind-protect
+        (progn
+          ;; 1. Retrieve log buffer for the world
+          (setq log-buf (boardgame-log-get-buffer world-dir))
+          (should (buffer-live-p log-buf))
+
+          ;; 2. Second call returns the same buffer (shared)
+          (should (eq log-buf (boardgame-log-get-buffer world-dir)))
+
+          ;; 3. Append message from board A
+          (boardgame-log-append "Board A: Player moved" world-dir "Board-A")
+          ;; 4. Append message from board B
+          (boardgame-log-append "Board B: Card drawn" world-dir "Board-B")
+
+          ;; 5. Both messages appear in the shared log buffer
+          (with-current-buffer log-buf
+            (let ((text (buffer-string)))
+              (should (string-match-p "Board A: Player moved" text))
+              (should (string-match-p "Board B: Card drawn" text))
+              ;; Board A entry appears before Board B (sequential order)
+              (should (< (string-match "Board A" text)
+                         (string-match "Board B" text)))))
+
+          ;; 6. A second world gets a different log buffer
+          (let* ((world-dir-2 (make-temp-file "boardgame-test-world2-" t))
+                 (log-buf-2 (boardgame-log-get-buffer world-dir-2)))
+            (unwind-protect
+                (progn
+                  (should (buffer-live-p log-buf-2))
+                  (should-not (eq log-buf log-buf-2)))
+              (boardgame-log-forget-world world-dir-2)
+              (when (buffer-live-p log-buf-2) (kill-buffer log-buf-2))
+              (delete-directory world-dir-2 t))))
+
+      ;; Cleanup
+      (boardgame-log-forget-world world-dir)
+      (when (buffer-live-p buf-board-a) (kill-buffer buf-board-a))
+      (when (buffer-live-p buf-board-b) (kill-buffer buf-board-b))
+      (when (and log-buf (buffer-live-p log-buf)) (kill-buffer log-buf))
+      (delete-directory world-dir t))))
 
 ;;; test-boardgame-org.el ends here
