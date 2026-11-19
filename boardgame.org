@@ -19,7 +19,13 @@ file:///home/buyn/Downloads/boardgame-implementation-plan.md
 mv /home/buyn/Downloads/boardgame-implementation-plan.md /home/buyn/Dev/emacs/boardgame-org/boardgame-implementation-plan.md
 
 (find-file-other-frame "~/Dev/emacs/boardgame-org/README.md")
-** 
+** src boardgame-org
+(find-file-other-frame "~/Dev/emacs/boardgame-org/boardgame-mode.el")
+(find-file-other-frame "~/Dev/emacs/boardgame-org/boardgame-window.el")
+(find-file-other-frame "~/Dev/emacs/boardgame-org/boardgame.el")
+** tests boardgame-org
+(find-file-other-frame "~/Dev/emacs/boardgame-org/test-boardgame-org.el")
+** arhiv
 
 (find-file-other-frame "~/Dev/emacs/boardgame-org/src.el/boardgame-org-board.el")
 (find-file-other-frame "~/Dev/emacs/boardgame-org/src.el/boardgame-org-container.el")
@@ -174,7 +180,7 @@ boardgame-org.md
 boardgame-org-interface.md
 boardgame-implementation-plan.md
 реализуй этап
-### Stage 1: Core Package Infrastructure, Dedicated Frame, Window Layout, and Buffer Stubs
+### Stage 2: In-Memory Data Model, Parsing, and Org File Serialization
 описаный в файле boardgame-implementation-plan.md
 
 
@@ -205,6 +211,10 @@ aider --architect --model gemini/gemini-2.5-pro boardgame-org-interface.md board
 * RUN
 ** start
 *** src block
+#+begin_src elisp
+(load "~/Dev/emacs/boardgame-org/boardgame.el")
+(boardgame-start)
+#+end_src
 
 (load "~/Dev/emacs/boardgame-org/boardgame-org.el")
 (boardgame-start)

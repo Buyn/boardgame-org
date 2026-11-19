@@ -4,7 +4,7 @@
 **Implementation language:** Emacs Lisp  
 **Primary dependency:** Org-mode  
 **Optional integration:** Hydra  
-**Project philosophy:** File-oriented state management, Org-mode serialization, explicit context transformations, modular implementation, and recoverable world history.
+    **Project philosophy:** File-oriented state management, Org-mode serialization, explicit context transformations, modular implementation, and recoverable world history.
 
 ## 1. Architectural Boundaries
 The specification distinguishes three categories of requirements:
