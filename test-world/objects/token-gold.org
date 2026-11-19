@@ -1,0 +1,9 @@
+* Token: Gold Coin
+:PROPERTIES:
+:OBJECT_TYPE: token
+:GLYPH: $
+:FG: yellow
+:BG: black
+:END:
+
+A shiny gold coin.

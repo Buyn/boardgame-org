@@ -1,0 +1,8 @@
+* World Log: test-world
+:PROPERTIES:
+:WORLD: test-world
+:CREATED: 2026-11-19
+:END:
+
+** Session Start
+Initial test world log created.

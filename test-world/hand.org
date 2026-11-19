@@ -1,0 +1,19 @@
+* Hand: Player 1 Hand
+:PROPERTIES:
+:HAND_OWNER: Player1
+:END:
+
+** Subtrees
+*** Card: Magic Arrow
+:PROPERTIES:
+:OBJECT_TYPE: card
+:GLYPH: A
+:END:
+A swift arrow of pure magic.
+
+*** Token: Health Potion
+:PROPERTIES:
+:OBJECT_TYPE: potion
+:GLYPH: P
+:END:
+Restores health when consumed.

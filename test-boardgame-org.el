@@ -71,6 +71,24 @@
 (declare-function boardgame-serialize-board-to-buffer "boardgame-serialize")
 (declare-function boardgame-serialize-board-to-file "boardgame-serialize")
 
+;; Stage 4 forward declarations
+(declare-function boardgame-object-indicator-for-count "boardgame-object")
+(declare-function boardgame-object-stack-indicator "boardgame-object")
+(declare-function boardgame-object-indicator-string "boardgame-object")
+(declare-function boardgame-object-topmost "boardgame-object")
+(declare-function boardgame-object-resolve-glyph "boardgame-object")
+(declare-function boardgame-render-board-into-buffer "boardgame-render")
+(declare-function boardgame-render-coord-to-pos "boardgame-render")
+(declare-function boardgame-render-pos-to-coord "boardgame-render")
+(declare-function boardgame-render-cell "boardgame-render")
+(declare-function boardgame-board-setup-buffer "boardgame-board")
+(declare-function boardgame-board-refresh "boardgame-board")
+(declare-function boardgame-board-goto-coord "boardgame-board")
+(declare-function boardgame-board-current-coord "boardgame-board")
+(declare-function boardgame-board-open-file "boardgame-board")
+(declare-function boardgame-open-test-world "boardgame-board")
+(declare-function boardgame-test-world-directory "boardgame-board")
+
 ;; -----------------------------------------------------------------------------
 ;; Architectural Invariant Tests
 ;; -----------------------------------------------------------------------------
@@ -86,7 +104,10 @@
   (should-not (featurep 'boardgame-serialize))
   (should-not (featurep 'boardgame-world))
   (should-not (featurep 'boardgame-log))
-  (should-not (featurep 'boardgame-status)))
+  (should-not (featurep 'boardgame-status))
+  (should-not (featurep 'boardgame-object))
+  (should-not (featurep 'boardgame-render))
+  (should-not (featurep 'boardgame-board)))
 
 ;; -----------------------------------------------------------------------------
 ;; Stage 1 Tests
@@ -620,5 +641,110 @@
       (when (buffer-live-p buf-board-b) (kill-buffer buf-board-b))
       (when (and log-buf (buffer-live-p log-buf)) (kill-buffer log-buf))
       (delete-directory world-dir t))))
+
+;; -----------------------------------------------------------------------------
+;; Stage 4 Tests: Board Rendering, Object Stacking, Root Test World Setup,
+;;                and Non-Wrapping Navigation
+;; -----------------------------------------------------------------------------
+
+(ert-deftest boardgame-test-stack-indicator-calculation ()
+  "Unit Test 4.1: Verify generated stack indicator character outputs (1..9, +)."
+  ;; Verify counts 1, 5, 9, 12 as specified in plan DoD
+  (let ((objs-1 (list (boardgame-object-create :name "O1")))
+        (objs-5 (mapcar (lambda (i) (boardgame-object-create :name (format "O%d" i))) (number-sequence 1 5)))
+        (objs-9 (mapcar (lambda (i) (boardgame-object-create :name (format "O%d" i))) (number-sequence 1 9)))
+        (objs-12 (mapcar (lambda (i) (boardgame-object-create :name (format "O%d" i))) (number-sequence 1 12))))
+    ;; Indicator calculation from object lists
+    (should (eq (boardgame-object-stack-indicator objs-1) ?1))
+    (should (eq (boardgame-object-stack-indicator objs-5) ?5))
+    (should (eq (boardgame-object-stack-indicator objs-9) ?9))
+    (should (eq (boardgame-object-stack-indicator objs-12) ?+))
+
+    ;; Indicator strings
+    (should (string= (boardgame-object-indicator-string objs-1) "1"))
+    (should (string= (boardgame-object-indicator-string objs-5) "5"))
+    (should (string= (boardgame-object-indicator-string objs-9) "9"))
+    (should (string= (boardgame-object-indicator-string objs-12) "+"))
+
+    ;; Indicator calculation directly from integer counts
+    (should (eq (boardgame-object-indicator-for-count 1) ?1))
+    (should (eq (boardgame-object-indicator-for-count 5) ?5))
+    (should (eq (boardgame-object-indicator-for-count 9) ?9))
+    (should (eq (boardgame-object-indicator-for-count 12) ?+))
+    (should (eq (boardgame-object-indicator-for-count 0) nil))
+    (should (eq (boardgame-object-indicator-for-count -1) nil))))
+
+(ert-deftest boardgame-test-layering-visibility ()
+  "Unit Test 4.2: Renderer selects top object glyph at (10, 10)."
+  (let* ((board (boardgame-board-create-empty "Layering Board" 20 20 "."))
+         (obj-bottom (boardgame-object-create :name "Shield" :x 10 :y 10 :glyph "S"))
+         (obj-middle (boardgame-object-create :name "Sword"  :x 10 :y 10 :glyph "/"))
+         (obj-top    (boardgame-object-create :name "Crown"  :x 10 :y 10 :glyph "C"))
+         (buf (generate-new-buffer "*boardgame-test-layering*")))
+    (unwind-protect
+        (progn
+          ;; Add objects in bottom-to-top order
+          (boardgame-board-add-object board obj-bottom)
+          (boardgame-board-add-object board obj-middle)
+          (boardgame-board-add-object board obj-top)
+
+          ;; The top object must be obj-top with glyph "C"
+          (should (eq (boardgame-board-get-top-object board 10 10) obj-top))
+          (should (string= (boardgame-object-resolve-glyph
+                            (boardgame-board-get-objects board 10 10))
+                           "C"))
+
+          ;; Render into buffer
+          (boardgame-render-board-into-buffer board buf)
+          (with-current-buffer buf
+            ;; Check character rendered at (10, 10)
+            (let ((pos (boardgame-render-coord-to-pos board 10 10)))
+              (should (= (char-after pos) ?C)))
+            ;; Check stack indicator rendered at (9, 10) directly to the left (count=3 -> ?3)
+            (let ((ind-pos (boardgame-render-coord-to-pos board 9 10)))
+              (should (= (char-after ind-pos) ?3)))))
+      (when (buffer-live-p buf) (kill-buffer buf)))))
+
+(ert-deftest boardgame-test-test-world-loading ()
+  "Integration Test 4.3: Execute boardgame-open-test-world and verify navigation."
+  (let ((orig-frames (frame-list))
+        (created-buf nil))
+    (unwind-protect
+        (progn
+          ;; Execute developer command
+          (setq created-buf (boardgame-open-test-world))
+          (should (buffer-live-p created-buf))
+
+          (with-current-buffer created-buf
+            ;; 1. Major mode is boardgame-board-mode
+            (should (eq major-mode 'boardgame-board-mode))
+
+            ;; 2. Line wrapping is disabled (truncate-lines is t)
+            (should (eq truncate-lines t))
+
+            ;; 3. Board dimensions are 150x60
+            (let ((board boardgame-board--data))
+              (should board)
+              (should (= (boardgame-board-width board) 150))
+              (should (= (boardgame-board-height board) 60))
+
+              ;; 4. Check stack indicator in test-world/board.org
+              ;; At (25, 10) there are 5 objects -> stack indicator at (24, 10) should be '5'
+              (let ((ind-pos (boardgame-render-coord-to-pos board 24 10)))
+                (should (= (char-after ind-pos) ?5)))
+              ;; At (50, 20) there are 12 objects -> stack indicator at (49, 20) should be '+'
+              (let ((ind-pos (boardgame-render-coord-to-pos board 49 20)))
+                (should (= (char-after ind-pos) ?+)))
+
+              ;; 5. Smooth non-wrapping navigation / scrolling to (120, 45)
+              (let ((pos (boardgame-board-goto-coord 120 45 created-buf)))
+                (should (= (point) pos))
+                (let ((cur-coord (boardgame-board-current-coord created-buf)))
+                  (should (equal cur-coord '(120 . 45)))))))))
+      ;; Cleanup created buffers and frames
+      (when (buffer-live-p created-buf) (kill-buffer created-buf))
+      (dolist (f (frame-list))
+        (unless (memq f orig-frames)
+          (delete-frame f)))))
 
 ;;; test-boardgame-org.el ends here

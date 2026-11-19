@@ -1,0 +1,9 @@
+* Card: Red Dragon
+:PROPERTIES:
+:OBJECT_TYPE: card
+:GLYPH: D
+:FG: red
+:BG: black
+:END:
+
+A fearsome red dragon that breathes fire.

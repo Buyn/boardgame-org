@@ -66,9 +66,9 @@ When nil, the user is prompted to select or create a world upon startup."
 
 (eval-and-compile
   (defvar boardgame--directory
-    (file-name-directory (or load-file-name
-                             buffer-file-name
-                             byte-compile-current-file
+    (file-name-directory (or (and (boundp 'load-file-name) load-file-name)
+                             (and (boundp 'buffer-file-name) buffer-file-name)
+                             (and (boundp 'byte-compile-current-file) byte-compile-current-file)
                              default-directory))
     "Internal directory path of the boardgame package."))
 
@@ -77,7 +77,7 @@ When nil, the user is prompted to select or create a world upon startup."
   (let ((file (expand-file-name module-name boardgame--directory)))
     (load file nil t)))
 
-;; Internal module loading for Stages 1, 2 & 3
+;; Internal module loading for Stages 1, 2, 3 & 4
 (boardgame--load-module "boardgame-mode")
 (boardgame--load-module "boardgame-window")
 (boardgame--load-module "boardgame-data")
@@ -85,6 +85,9 @@ When nil, the user is prompted to select or create a world upon startup."
 (boardgame--load-module "boardgame-world")
 (boardgame--load-module "boardgame-log")
 (boardgame--load-module "boardgame-status")
+(boardgame--load-module "boardgame-object")
+(boardgame--load-module "boardgame-render")
+(boardgame--load-module "boardgame-board")
 
 (declare-function boardgame-window-initialize "boardgame-window" (&optional world-directory))
 (declare-function boardgame-world-resolve-and-activate "boardgame-world" (&optional world-dir))

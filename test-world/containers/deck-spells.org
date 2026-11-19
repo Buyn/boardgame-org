@@ -1,0 +1,23 @@
+* Container: Spell Deck
+:PROPERTIES:
+:OBJECT_TYPE: container
+:CONTAINER_TYPE: deck
+:GLYPH: S
+:FG: cyan
+:BG: black
+:END:
+
+** Contents
+*** Card: Fireball
+:PROPERTIES:
+:OBJECT_TYPE: card
+:GLYPH: F
+:END:
+Deals fire damage.
+
+*** Card: Ice Storm
+:PROPERTIES:
+:OBJECT_TYPE: card
+:GLYPH: I
+:END:
+Freezes enemies.

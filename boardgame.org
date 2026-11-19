@@ -111,7 +111,7 @@ boardgame-implementation-plan.md
 
 ** urgent 
 ** TODO in progress
-*** Туду используй файлы
+*** WAITING Туду используй файлы
 @boardgame-org.md @boardgame-org-interface.md @boardgame-implementation-plan.md
 implement the stage
 ### Stage 4: Board Rendering, Object Stacking, Root Test World Setup, and Non-Wrapping Navigation
@@ -245,8 +245,20 @@ aider --architect --model gemini/gemini-2.5-pro boardgame-org-interface.md board
 то довай в отдельный фаил вынесем требования к коду. поскольку они относятся к обоим файлам.
 ** backlog
 * RUN
+** antigravity
+cd ~/Dev/emacs/boardgame-org
+
+Resume with -c (or command below):
+agy --conversation=1ad1fefa-813f-4a5c-95d7-728ff6a09cb0
+~/Dev/emacs/boardgame-org
+
 ** start
 *** src block
+#+begin_src elisp
+(load "~/Dev/emacs/boardgame-org/boardgame.el")
+(boardgame-start "/home/buyn/Dev/emacs/boardgame-org/test-world/")
+#+end_src
+
 #+begin_src elisp
 (load "~/Dev/emacs/boardgame-org/boardgame.el")
 (boardgame-start)
