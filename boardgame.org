@@ -16,6 +16,7 @@ cd ~/Dev/emacs/boardgame-org/
 file:///home/buyn/Downloads/boardgame-implementation-plan.md
 (find-file-other-frame "/home/buyn/Downloads/boardgame-implementation-plan-v2.md")
 
+
 mv /home/buyn/Downloads/boardgame-implementation-plan.md /home/buyn/Dev/emacs/boardgame-org/boardgame-implementation-plan.md
 
 (find-file-other-frame "~/Dev/emacs/boardgame-org/README.md")
@@ -23,6 +24,9 @@ mv /home/buyn/Downloads/boardgame-implementation-plan.md /home/buyn/Dev/emacs/bo
 (find-file-other-frame "~/Dev/emacs/boardgame-org/boardgame-mode.el")
 (find-file-other-frame "~/Dev/emacs/boardgame-org/boardgame-window.el")
 (find-file-other-frame "~/Dev/emacs/boardgame-org/boardgame.el")
+
+(find-file-other-frame "~/Dev/emacs/boardgame-org/boardgame-serialize.el")
+(find-file-other-frame "~/Dev/emacs/boardgame-org/boardgame-data.el")
 ** tests boardgame-org
 (find-file-other-frame "~/Dev/emacs/boardgame-org/test-boardgame-org.el")
 ** arhiv
@@ -107,13 +111,39 @@ boardgame-implementation-plan.md
 
 ** urgent 
 ** TODO in progress
-*** WAITING используй файлы 
+*** TODO используй файлы
+/compact
+/model cloud
+@boardgame-org.md @boardgame-org-interface.md @boardgame-implementation-plan.md
+implement the stage
+### Stage 3: World Management, Session State, and Unified Logging
+described in the file @boardgame-implementation-plan.md
+and make sure that the previous steps are accurately implemented in accordance with the documentation.
+
+*** DONE используй файлы 
 boardgame-org.md
 boardgame-org-interface.md
 boardgame-implementation-plan.md
 реализуй этап
 ### Stage 2: In-Memory Data Model, Parsing, and Org File Serialization
 описаный в файле boardgame-implementation-plan.md
+
+*** DONE Тебе не кажется что на 4 этапе нужнно добавить тестовый мир?
+Который будет загружатся, и сохранятся чтоб убедится что всё правельно отображается.
+Тоесть сделать орг фаил, тестового(дебагерсково типа), чтоб по нему можно было убедится, что хотьбы в ожидаемомо, вареанте всё работает как ожидается?
+Или я не заметил и требование добавить такой мир уже есть в документации?
+
+*** DONE Да тогда довай сделаем изменения.
+Укажим его налияия. что он должен лежать в отдельной папке в корне проекта.
+и последушие теты должны включать его. Используя его для тестирования новых фичь. И обновить\добавить тесты предыдуших фичь на основе этого мира.
+Хорошоая идея? или видишь лучше?
+
+*** DONE Почему ты предлогаешь отдельную папку fixtures?
+а не ложить всё в корень проекта в отдельных папках? Тоесть у нас что будет атмк много фиекстур чтоб их в отдельную папку прятать?
+и почему debug-world а не test-world?
+
+*** DONE да внеси измение.
+и препроверь в целом документацию и исправь не точности если встретишь.
 
 ** dezine
 *** ert
@@ -297,6 +327,11 @@ make test
 (load "boardgame-org.el")
 
 *** commands
+**** copy boardgame-implementation-plan.md
+#+begin_src eshell
+mv /home/buyn/Downloads/boardgame-implementation-plan.md /home/buyn/Dev/emacs/boardgame-org/boardgame-implementation-plan.md
+#+end_src
+
 ** dir
 cd ~/Dev/emacs/boardgame-org/
 ** git
