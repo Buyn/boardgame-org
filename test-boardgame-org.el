@@ -40,6 +40,38 @@
 (declare-function boardgame-get-status-stub-buffer "boardgame-mode")
 (declare-function boardgame-start "boardgame")
 
+;; Stage 2 forward declarations
+(declare-function boardgame-board-create "boardgame-data")
+(declare-function boardgame-board-p "boardgame-data")
+(declare-function boardgame-board-name "boardgame-data")
+(declare-function boardgame-board-width "boardgame-data")
+(declare-function boardgame-board-height "boardgame-data")
+(declare-function boardgame-board-felt-default "boardgame-data")
+(declare-function boardgame-board-properties "boardgame-data")
+(declare-function boardgame-board-get-felt "boardgame-data")
+(declare-function boardgame-board-set-felt "boardgame-data")
+(declare-function boardgame-board-felt-string "boardgame-data")
+(declare-function boardgame-board-get-objects "boardgame-data")
+(declare-function boardgame-board-get-top-object "boardgame-data")
+(declare-function boardgame-board-add-object "boardgame-data")
+(declare-function boardgame-board-remove-object "boardgame-data")
+(declare-function boardgame-board-move-object "boardgame-data")
+(declare-function boardgame-board-all-objects "boardgame-data")
+(declare-function boardgame-board-create-empty "boardgame-data")
+(declare-function boardgame-object-create "boardgame-data")
+(declare-function boardgame-object-name "boardgame-data")
+(declare-function boardgame-object-x "boardgame-data")
+(declare-function boardgame-object-y "boardgame-data")
+(declare-function boardgame-object-glyph "boardgame-data")
+(declare-function boardgame-felt-normalize "boardgame-serialize")
+(declare-function boardgame-felt-normalize-string "boardgame-serialize")
+(declare-function boardgame-serialize-parse-property-drawer "boardgame-serialize")
+(declare-function boardgame-deserialize-board "boardgame-serialize")
+(declare-function boardgame-deserialize-board-file "boardgame-serialize")
+(declare-function boardgame-serialize-board "boardgame-serialize")
+(declare-function boardgame-serialize-board-to-buffer "boardgame-serialize")
+(declare-function boardgame-serialize-board-to-file "boardgame-serialize")
+
 ;; -----------------------------------------------------------------------------
 ;; Architectural Invariant Tests
 ;; -----------------------------------------------------------------------------
@@ -50,7 +82,9 @@
   (should (featurep 'boardgame))
   ;; Internal modules must NOT register independent features
   (should-not (featurep 'boardgame-mode))
-  (should-not (featurep 'boardgame-window)))
+  (should-not (featurep 'boardgame-window))
+  (should-not (featurep 'boardgame-data))
+  (should-not (featurep 'boardgame-serialize)))
 
 ;; -----------------------------------------------------------------------------
 ;; Stage 1 Tests
@@ -235,5 +269,210 @@
                           boardgame-status-stub-buffer-name))
         (when (get-buffer name)
           (kill-buffer name))))))
+
+;; -----------------------------------------------------------------------------
+;; Stage 2 Tests: In-Memory Data Model, Parsing & Org Serialization
+;; -----------------------------------------------------------------------------
+
+(ert-deftest boardgame-test-felt-normalization ()
+  "Unit Test 2.1: Verify ragged felt normalization across dimensions."
+  ;; Test 1: Ragged list of lines (short, long, empty)
+  (let* ((width 8)
+         (height 4)
+         (ragged '("abc" "1234567890extra" "" "hello"))
+         (norm (boardgame-felt-normalize ragged width height ?\.)))
+    ;; Exactly height rows returned
+    (should (= (length norm) height))
+    ;; Every row has exact width
+    (dolist (row norm)
+      (should (= (length row) width)))
+    ;; Check individual rows:
+    ;; Row 0: "abc" padded with 5 dots
+    (should (string= (nth 0 norm) "abc....."))
+    ;; Row 1: "1234567890extra" clipped to width 8
+    (should (string= (nth 1 norm) "12345678"))
+    ;; Row 2: "" filled with 8 dots
+    (should (string= (nth 2 norm) "........"))
+    ;; Row 3: "hello" padded with 3 dots
+    (should (string= (nth 3 norm) "hello...")))
+
+  ;; Test 2: Input with fewer rows than height (missing rows filled)
+  (let* ((norm-short (boardgame-felt-normalize '("##") 5 3 ?#)))
+    (should (= (length norm-short) 3))
+    (should (string= (nth 0 norm-short) "#####"))
+    (should (string= (nth 1 norm-short) "#####"))
+    (should (string= (nth 2 norm-short) "#####")))
+
+  ;; Test 3: Input with more rows than height (extra rows clipped)
+  (let* ((norm-tall (boardgame-felt-normalize '("a" "b" "c" "d" "e") 4 2 ?\.)))
+    (should (= (length norm-tall) 2))
+    (should (string= (nth 0 norm-tall) "a..."))
+    (should (string= (nth 1 norm-tall) "b...")))
+
+  ;; Test 4: String input with newlines and normalized-string output
+  (let* ((multiline "row1\nrow2-long-extra\n\nrow4")
+         (norm-str (boardgame-felt-normalize-string multiline 6 4 ?~)))
+    (should (string= norm-str "row1~~\nrow2-l\n~~~~~~\nrow4~~"))))
+
+(ert-deftest boardgame-test-property-drawer-parsing ()
+  "Unit Test 2.2: Verify Org header and property drawer parsing."
+  (let* ((org-header
+          (concat
+           "* Board: Dungeon Depths\n"
+           ":PROPERTIES:\n"
+           ":BOARD_WIDTH: 65\n"
+           ":BOARD_HEIGHT: 32\n"
+           ":FELT_DEFAULT: ~\n"
+           ":CUSTOM_CREATOR: Wizard\n"
+           ":END:\n\n"
+           "** Felt\n"
+           "#+begin_src felt\n"
+           "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n"
+           "#+end_src\n"))
+         (board (boardgame-deserialize-board org-header)))
+    ;; Verify extracted name
+    (should (string= (boardgame-board-name board) "Dungeon Depths"))
+    ;; Verify extracted dimensions
+    (should (= (boardgame-board-width board) 65))
+    (should (= (boardgame-board-height board) 32))
+    ;; Verify extracted default felt character
+    (should (equal (boardgame-board-felt-default board) "~"))
+    ;; Verify custom properties retained
+    (should (assoc "CUSTOM_CREATOR" (boardgame-board-properties board)))
+    (should (string= (cdr (assoc "CUSTOM_CREATOR" (boardgame-board-properties board)))
+                     "Wizard"))))
+
+(ert-deftest boardgame-test-data-model-operations ()
+  "Unit Test: Verify in-memory felt grid, coordinate lookup, and object stacking."
+  (let ((board (boardgame-board-create-empty "Test Space" 10 5 ?.)))
+    ;; 1. Check initial dimensions and default felt
+    (should (= (boardgame-board-width board) 10))
+    (should (= (boardgame-board-height board) 5))
+    (should (= (boardgame-board-get-felt board 0 0) ?\.))
+    (should (= (boardgame-board-get-felt board 9 4) ?\.))
+
+    ;; 2. Set and get felt cell
+    (boardgame-board-set-felt board 3 2 ?#)
+    (should (= (boardgame-board-get-felt board 3 2) ?#))
+    ;; Adjacent cells remain unchanged
+    (should (= (boardgame-board-get-felt board 3 1) ?\.))
+
+    ;; 3. Object placement and stacking at same coordinate
+    (let ((card-1 (boardgame-object-create :name "Card A" :x 4 :y 2 :glyph "A"))
+          (card-2 (boardgame-object-create :name "Card B" :x 4 :y 2 :glyph "B")))
+      (boardgame-board-add-object board card-1)
+      (boardgame-board-add-object board card-2)
+
+      ;; Multiple objects at (4, 2)
+      (let ((stacked (boardgame-board-get-objects board 4 2)))
+        (should (= (length stacked) 2))
+        ;; Topmost object is card-2 (most recently added on top)
+        (should (eq (car stacked) card-2))
+        (should (eq (boardgame-board-get-top-object board 4 2) card-2)))
+
+      ;; Move card-2 to (6, 1)
+      (boardgame-board-move-object board card-2 6 1)
+      (should (= (length (boardgame-board-get-objects board 4 2)) 1))
+      (should (eq (boardgame-board-get-top-object board 4 2) card-1))
+      (should (eq (boardgame-board-get-top-object board 6 1) card-2))
+
+      ;; Remove card-1
+      (boardgame-board-remove-object board card-1)
+      (should-not (boardgame-board-get-objects board 4 2))
+      (should-not (boardgame-board-get-top-object board 4 2)))))
+
+(ert-deftest boardgame-test-roundtrip-serialization ()
+  "Integration Test 2.3: Verify lossless round-trip Org board serialization."
+  (let* ((source-text
+          (concat
+           "* Board: Adventure Arena\n"
+           ":PROPERTIES:\n"
+           ":BOARD_WIDTH: 20\n"
+           ":BOARD_HEIGHT: 5\n"
+           ":FELT_DEFAULT: .\n"
+           ":END:\n\n"
+           "** Felt\n"
+           ":PROPERTIES:\n"
+           ":CUSTOM_ID: felt\n"
+           ":END:\n\n"
+           "#+begin_src felt\n"
+           "....................\n"
+           "....#####...........\n"
+           "....#...#...........\n"
+           "....#####...........\n"
+           "....................\n"
+           "#+end_src\n\n"
+           "** Objects\n"
+           ":PROPERTIES:\n"
+           ":CUSTOM_ID: objects\n"
+           ":END:\n\n"
+           "*** Dragon Card\n"
+           ":PROPERTIES:\n"
+           ":OBJECT_FILE: objects/dragon.org\n"
+           ":OBJECT_TYPE: card\n"
+           ":X: 4\n"
+           ":Y: 1\n"
+           ":GLYPH: D\n"
+           ":END:\n\n"
+           "*** Gold Token\n"
+           ":PROPERTIES:\n"
+           ":OBJECT_FILE: objects/gold.org\n"
+           ":OBJECT_TYPE: token\n"
+           ":X: 8\n"
+           ":Y: 2\n"
+           ":GLYPH: $\n"
+           ":END:\n"))
+         (temp-file (make-temp-file "boardgame-roundtrip-" nil ".org"))
+         (temp-buffer (generate-new-buffer "*boardgame-test-roundtrip*")))
+    (unwind-protect
+        (progn
+          ;; 1. Write source Org document to file
+          (with-temp-file temp-file
+            (insert source-text))
+
+          ;; 2. Deserialize board from file into in-memory model
+          (let ((board (boardgame-deserialize-board-file temp-file)))
+            (should (boardgame-board-p board))
+            (should (string= (boardgame-board-name board) "Adventure Arena"))
+            (should (= (boardgame-board-width board) 20))
+            (should (= (boardgame-board-height board) 5))
+            (should (= (boardgame-board-get-felt board 4 1) ?#))
+            (should (= (boardgame-board-get-felt board 0 0) ?\.))
+            (should (= (length (boardgame-board-all-objects board)) 2))
+            (let ((dragon (boardgame-board-get-top-object board 4 1))
+                  (gold (boardgame-board-get-top-object board 8 2)))
+              (should dragon)
+              (should (string= (boardgame-object-name dragon) "Dragon Card"))
+              (should (string= (boardgame-object-glyph dragon) "D"))
+              (should gold)
+              (should (string= (boardgame-object-name gold) "Gold Token"))
+              (should (string= (boardgame-object-glyph gold) "$")))
+
+            ;; 3. Serialize back into a temporary buffer
+            (boardgame-serialize-board-to-buffer board temp-buffer)
+
+            ;; 4. Assert that serialized Org text is identical to source document
+            (with-current-buffer temp-buffer
+              (should (string= (buffer-string) source-text)))
+
+            ;; 5. Assert mutual invertibility: deserialize(serialize(state)) == state
+            (let* ((re-serialized (boardgame-serialize-board board))
+                   (re-board (boardgame-deserialize-board re-serialized)))
+              (should (string= (boardgame-board-name re-board)
+                               (boardgame-board-name board)))
+              (should (= (boardgame-board-width re-board)
+                         (boardgame-board-width board)))
+              (should (= (boardgame-board-height re-board)
+                         (boardgame-board-height board)))
+              (should (string= (boardgame-board-felt-string re-board)
+                               (boardgame-board-felt-string board)))
+              (should (= (length (boardgame-board-all-objects re-board))
+                         (length (boardgame-board-all-objects board)))))))
+
+      ;; Cleanup
+      (when (file-exists-p temp-file)
+        (delete-file temp-file))
+      (when (buffer-live-p temp-buffer)
+        (kill-buffer temp-buffer)))))
 
 ;;; test-boardgame-org.el ends here
