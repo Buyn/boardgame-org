@@ -59,8 +59,6 @@ mv /home/buyn/Downloads/boardgame-implementation-plan.md /home/buyn/Dev/emacs/bo
 ** 
 * Kanban
 ** DONE done
-** urgent 
-** TODO in progress
 *** DONE довай сделаем план реализации проекта
 на сколько этапов стоит разделить проекст?
 дополнительно в плане нужно указать что это код на еслисп для имакса и каждый этап должен содржать тесты, выполение которые означает завершение этапа.
@@ -89,6 +87,35 @@ agy
 (load-file "~/Dev/emacs/boardgame-org/test-boardgame-org.el")
 (ert "^boardgame-test")
 ?
+*** DONE boardgame-org-interface.md
+я добавил дополнительный фаил спецификации. описываюний поведение и интерфейс boardgame-org-interface.md.
+довай перепишим elisp пакет для того чтоб он отражал новые требования указаные в новом файле спецификации. учитываю основной фаили спецификации boardgame-org.md.
+
+*** DONE возми фаилы boardgame-org.md и boardgame-org-interface.md
+и используй их техническую спецификацию для создания на elisp for emacs пакета для emacs.
+и напиши пакета для emacs следуя этому файлу, в папке src.el, на elisp следуя спецификации указаной в файле.
+и сделай фаил readme.org c описанием и инструкций по использованию получившевося пакет. для варианта на тайп скрип сделай только отображения инструкции из файл readme.org.
+
+*** DONE используй файлы 
+boardgame-org.md
+boardgame-org-interface.md
+boardgame-implementation-plan.md
+реализуй этап
+### Stage 1: Core Package Infrastructure, Dedicated Frame, Window Layout, and Buffer Stubs
+описаный в файле boardgame-implementation-plan.md
+
+
+** urgent 
+** TODO in progress
+*** WAITING используй файлы 
+boardgame-org.md
+boardgame-org-interface.md
+boardgame-implementation-plan.md
+реализуй этап
+### Stage 2: In-Memory Data Model, Parsing, and Org File Serialization
+описаный в файле boardgame-implementation-plan.md
+
+** dezine
 *** ert
 #+begin_src emacs-lisp 
 (load "~/Dev/emacs/boardgame-org/boardgame-org.el")
@@ -157,34 +184,7 @@ F boardgame-test-stack-consolidation-and-glyph
 (load-file "test-boardgame-org.el")
 (ert "^boardgame-test")
 #+end_src
-*** DONE boardgame-org-interface.md
-я добавил дополнительный фаил спецификации. описываюний поведение и интерфейс boardgame-org-interface.md.
-довай перепишим elisp пакет для того чтоб он отражал новые требования указаные в новом файле спецификации. учитываю основной фаили спецификации boardgame-org.md.
 
-*** DONE возми фаилы boardgame-org.md и boardgame-org-interface.md
-и используй их техническую спецификацию для создания на elisp for emacs пакета для emacs.
-и напиши пакета для emacs следуя этому файлу, в папке src.el, на elisp следуя спецификации указаной в файле.
-и сделай фаил readme.org c описанием и инструкций по использованию получившевося пакет. для варианта на тайп скрип сделай только отображения инструкции из файл readme.org.
-
-*** DONE используй файлы 
-boardgame-org.md
-boardgame-org-interface.md
-boardgame-implementation-plan.md
-реализуй этап
-### Stage 1: Core Package Infrastructure, Dedicated Frame, Window Layout, and Buffer Stubs
-описаный в файле boardgame-implementation-plan.md
-
-
-*** используй файлы 
-boardgame-org.md
-boardgame-org-interface.md
-boardgame-implementation-plan.md
-реализуй этап
-### Stage 2: In-Memory Data Model, Parsing, and Org File Serialization
-описаный в файле boardgame-implementation-plan.md
-
-
-** dezine
 ** todo
 *** aider
 aider --architect --model gemini/gemini-2.5-pro boardgame-org-interface.md boardgame-org.md
