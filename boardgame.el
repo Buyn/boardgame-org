@@ -77,7 +77,7 @@ When nil, the user is prompted to select or create a world upon startup."
   (let ((file (expand-file-name module-name boardgame--directory)))
     (load file nil t)))
 
-;; Internal module loading for Stages 1, 2, 3 & 4
+;; Internal module loading for Stages 1, 2, 3, 4 & 5
 (boardgame--load-module "boardgame-mode")
 (boardgame--load-module "boardgame-window")
 (boardgame--load-module "boardgame-data")
@@ -88,10 +88,16 @@ When nil, the user is prompted to select or create a world upon startup."
 (boardgame--load-module "boardgame-object")
 (boardgame--load-module "boardgame-render")
 (boardgame--load-module "boardgame-board")
+(boardgame--load-module "boardgame-draw")
 
 (declare-function boardgame-window-initialize "boardgame-window" (&optional world-directory))
 (declare-function boardgame-world-resolve-and-activate "boardgame-world" (&optional world-dir))
 (declare-function boardgame-log-get-buffer "boardgame-log" (world-dir))
+(declare-function boardgame-draw-toggle "boardgame-draw")
+(declare-function boardgame-draw-point-paint "boardgame-draw")
+(declare-function boardgame-draw-fill-region "boardgame-draw")
+(declare-function boardgame-draw-pipette "boardgame-draw")
+(declare-function boardgame-draw-set-glyph "boardgame-draw")
 
 ;; -----------------------------------------------------------------------------
 ;; Primary Interactive Entry Point

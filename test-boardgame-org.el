@@ -72,6 +72,14 @@
 (declare-function boardgame-serialize-board-to-file "boardgame-serialize")
 
 ;; Stage 4 forward declarations
+
+;; Stage 5 forward declarations
+(declare-function boardgame-draw-toggle "boardgame-draw")
+(declare-function boardgame-draw-point-paint "boardgame-draw")
+(declare-function boardgame-draw-fill-region "boardgame-draw")
+(declare-function boardgame-draw-pipette "boardgame-draw")
+(declare-function boardgame-draw-set-glyph "boardgame-draw")
+(declare-function boardgame-draw-resolve-glyph "boardgame-draw")
 (declare-function boardgame-object-indicator-for-count "boardgame-object")
 (declare-function boardgame-object-stack-indicator "boardgame-object")
 (declare-function boardgame-object-indicator-string "boardgame-object")
@@ -746,5 +754,139 @@
       (dolist (f (frame-list))
         (unless (memq f orig-frames)
           (delete-frame f)))))
+
+
+
+;; -----------------------------------------------------------------------------
+;; Stage 5 Tests: Drawing Mode (Felt Layer) and Text Overwrite Mode
+;; -----------------------------------------------------------------------------
+
+(ert-deftest boardgame-test-pipette-sampling ()
+  "Unit Test 5.1: Pipette samples character and color under cursor."
+  (let* ((board (boardgame-board-create-empty "Pipette Test" 10 10 ?\.))
+         (buf (generate-new-buffer "*boardgame-test-pipette*"))
+         (board-buf (boardgame-board-setup-buffer board)))
+    (unwind-protect
+        (progn
+          (boardgame-board-set-felt board 3 2 ?#)
+          (with-current-buffer board-buf
+            (setq-local boardgame-draw--mode t)
+            (setq-local boardgame-draw--glyph ?\s)
+            (setq-local boardgame-draw--foreground nil)
+            (setq-local boardgame-draw--background nil)
+            (setq-local boardgame-draw--recent-glyphs '()))
+          (boardgame-board-goto-coord 3 2 board-buf)
+          (with-current-buffer board-buf (boardgame-draw-pipette))
+          (with-current-buffer board-buf
+            (should (eq boardgame-draw--glyph ?#))
+            (should (member ?# boardgame-draw--recent-glyphs))))
+      (when (buffer-live-p board-buf) (kill-buffer board-buf))
+      (when (buffer-live-p buf) (kill-buffer buf)))))
+
+(ert-deftest boardgame-test-recent-symbol-history ()
+  "Unit Test 5.2: Recent symbol queue maintains correct order without duplicates."
+  (let* ((board (boardgame-board-create-empty "Recent Test" 10 10 ?\.))
+         (buf (generate-new-buffer "*boardgame-test-recent*"))
+         (board-buf (boardgame-board-setup-buffer board)))
+    (unwind-protect
+        (progn
+          (with-current-buffer board-buf
+            (setq-local boardgame-draw--mode t)
+            (setq-local boardgame-draw--recent-glyphs '()))
+          (with-current-buffer board-buf
+            (dolist (char '(?! ?@ ?# ?$ ?%))
+              (boardgame-draw-set-glyph char)))
+          (with-current-buffer board-buf
+            (let ((recent boardgame-draw--recent-glyphs))
+              (should (eq (car recent) ?%))
+              (should (eq (nth 1 recent) ?$))
+              (should (eq (nth 2 recent) ?#))
+              (should (eq (nth 3 recent) ?@))
+              (should (eq (nth 4 recent) ?!))
+              (should (= (length recent) 5)))))
+      (when (buffer-live-p board-buf) (kill-buffer board-buf))
+      (when (buffer-live-p buf) (kill-buffer buf)))))
+
+(ert-deftest boardgame-test-glyph-extraction-fallback ()
+  "Unit Test: Verify glyph extraction from Org headings with fallback rules."
+  (should (eq (boardgame-draw-resolve-glyph "Card Dragon" ?*) ?C))
+  (should (eq (boardgame-draw-resolve-glyph "" ?*) ?*))
+  (should (eq (boardgame-draw-resolve-glyph nil ?*) ?*))
+  (should (eq (boardgame-draw-resolve-glyph "*** Magic Spell" ?*) ?*))
+  (should (eq (boardgame-draw-resolve-glyph "   Card" ?*) ?C)))
+
+(ert-deftest boardgame-test-fill-region ()
+  "Unit Test: Fill region replaces felt cells in a rectangle."
+  (let* ((board (boardgame-board-create-empty "Fill Region Test" 20 20 ?\.))
+         (buf (generate-new-buffer "*boardgame-test-fill*"))
+         (board-buf (boardgame-board-setup-buffer board)))
+    (unwind-protect
+        (progn
+          (with-current-buffer board-buf
+            (boardgame-draw-toggle)
+            (boardgame-draw-set-glyph ?#)
+            (let ((start (boardgame-render-coord-to-pos board 3 3))
+                  (end (boardgame-render-coord-to-pos board 5 4)))
+              (goto-char start)
+              (set-mark end)
+              (should (use-region-p))
+              (boardgame-draw-fill-region)))
+          (dotimes (x 3)
+            (dotimes (y 2)
+              (should (eq (boardgame-board-get-felt board (+ 3 x) (+ 3 y)) ?#))))
+          (should (eq (boardgame-board-get-felt board 2 3) ?\.))
+          (should (eq (boardgame-board-get-felt board 6 3) ?\.)))
+      (when (buffer-live-p board-buf) (kill-buffer board-buf))
+      (when (buffer-live-p buf) (kill-buffer buf)))))
+
+(ert-deftest boardgame-test-drawing-mode-stack-integration ()
+  "Integration Test: Drawing mode respects object layering."
+  (let* ((board (boardgame-board-create-empty "Stack Drawing" 20 20 ?\.))
+         (buf (generate-new-buffer "*boardgame-test-stack-draw*"))
+         (board-buf (boardgame-board-setup-buffer board)))
+    (unwind-protect
+        (progn
+          (with-current-buffer board-buf
+            (let ((obj1 (boardgame-object-create :name "Bottom" :x 5 :y 5 :glyph "B"))
+                  (obj2 (boardgame-object-create :name "Middle" :x 5 :y 5 :glyph "M"))
+                  (obj3 (boardgame-object-create :name "Top"    :x 5 :y 5 :glyph "T")))
+              (boardgame-board-add-object board obj1)
+              (boardgame-board-add-object board obj2)
+              (boardgame-board-add-object board obj3)
+              (should (= (boardgame-board-object-count-at board 5 5) 3))))
+          (boardgame-draw-toggle)
+          (should boardgame-draw--mode)
+          (boardgame-board-goto-coord 5 5 board-buf)
+          (boardgame-draw-point-paint)
+          (should (= (boardgame-board-object-count-at board 5 5) 3))
+          (boardgame-draw-paint-cell 7 7)
+          (should (eq (boardgame-board-get-felt board 7 7) ?\s))
+          (should (eq (boardgame-board-get-objects board 7 7) nil))
+          (boardgame-draw-toggle)
+          (should-not boardgame-draw--mode)
+          (should (= (boardgame-board-object-count-at board 5 5) 3)))
+      (when (buffer-live-p board-buf) (kill-buffer board-buf))
+      (when (buffer-live-p buf) (kill-buffer buf)))))
+
+(ert-deftest boardgame-test-text-mode-integration ()
+  "Unit Test: Text Overwrite Mode replaces felt without affecting objects."
+  (let* ((board (boardgame-board-create-empty "Text Mode Test" 10 10 ?\.))
+         (buf (generate-new-buffer "*boardgame-test-text-mode*"))
+         (board-buf (boardgame-board-setup-buffer board)))
+    (unwind-protect
+        (progn
+          (with-current-buffer board-buf
+            (boardgame-draw-toggle)
+            (should boardgame-draw--mode)
+            (boardgame-text-mode-toggle)
+            (should boardgame-draw--text-mode))
+          (with-current-buffer board-buf
+            (boardgame-board-goto-coord 3 2 board-buf)
+            (boardgame-draw-set-glyph ?#)
+            (boardgame-text-mode--insert-char ?X)
+            (should (eq (boardgame-board-get-felt board 3 2) ?X))
+            (should (= (point) (boardgame-render-coord-to-pos board 4 2)))))
+      (when (buffer-live-p board-buf) (kill-buffer board-buf))
+      (when (buffer-live-p buf) (kill-buffer buf)))))
 
 ;;; test-boardgame-org.el ends here
