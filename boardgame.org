@@ -63,59 +63,50 @@ mv /home/buyn/Downloads/boardgame-implementation-plan.md /home/buyn/Dev/emacs/bo
 ** 
 * Kanban
 ** DONE done
-*** DONE довай сделаем план реализации проекта
-на сколько этапов стоит разделить проекст?
-дополнительно в плане нужно указать что это код на еслисп для имакса и каждый этап должен содржать тесты, выполение которые означает завершение этапа.
-*** DONE Несогласен
-**** думаю нужно добавить дополнительный этап.
-**** думаю первым этапом должно бывать создание самого фрема мода.
-тоесть делсить фрейм на заданые окна. используя нужные буферы пока как заглушки(для вещей которые будут описаны в других этапах).
-*** DONE а почему ты разделил это на отдельные файлы?
-там где в описание было такое требование?(возможно это и не плохая идея.)
-только разделив жто на файлы\модул загружать думаю их лучше через лоад а неделать провайд, поскольку это всё один проект, который должен грухится одним куском. И провайдится должен только проект целеком.
-*** DONE Установить антиграв КЛаЙ 
-
-# Create your dedicated project folder
-mkdir -p ~/Dev/AI/antigravity
-cd ~/Dev/AI/antigravity
-
-# Run their official install script (you can inspect it first if you're paranoid, but let's assume direct execution)
-curl -fsSL https://antigravity.google/cli/install.sh | bash
-
-
-agy
-*** DONE да стоит это явно прописать в проекте
-добавив туда явный пункт про архитектуру загрузки через главный файл и единый `(provide 'boardgame)`.
-думаешь это нужно добавить в boardgame-implementation-plan.md а не в другой фаил?
-и проверь что учазано про тесты. что для тестирования должно использоватся ert. и как пример
-(load-file "~/Dev/emacs/boardgame-org/test-boardgame-org.el")
-(ert "^boardgame-test")
-?
-*** DONE boardgame-org-interface.md
-я добавил дополнительный фаил спецификации. описываюний поведение и интерфейс boardgame-org-interface.md.
-довай перепишим elisp пакет для того чтоб он отражал новые требования указаные в новом файле спецификации. учитываю основной фаили спецификации boardgame-org.md.
-
-*** DONE возми фаилы boardgame-org.md и boardgame-org-interface.md
-и используй их техническую спецификацию для создания на elisp for emacs пакета для emacs.
-и напиши пакета для emacs следуя этому файлу, в папке src.el, на elisp следуя спецификации указаной в файле.
-и сделай фаил readme.org c описанием и инструкций по использованию получившевося пакет. для варианта на тайп скрип сделай только отображения инструкции из файл readme.org.
-
-*** DONE используй файлы 
-boardgame-org.md
-boardgame-org-interface.md
-boardgame-implementation-plan.md
-реализуй этап
-### Stage 1: Core Package Infrastructure, Dedicated Frame, Window Layout, and Buffer Stubs
-описаный в файле boardgame-implementation-plan.md
-
-
-** urgent 
-** TODO in progress
-*** Туду используй файлы
+*** DONE Туду используй файлы
 @boardgame-org.md @boardgame-org-interface.md @boardgame-implementation-plan.md
 implement the stage
 ### Stage 5: Drawing Mode (Felt Layer) and Text Overwrite Mode
 described in the file @boardgame-implementation-plan.md
+*** DONE ## Summary Stage 5
+
+I've implemented Stage 5: Drawing Mode (Felt Layer) and Text Overwrite Mode for boardgame.org
+. Here's what was completed:
+
+### 1. Created boardgame-draw.el (292 lines)
+- **Drawing Mode**: Toggle with boardgame-draw-toggle (F1)
+- **Text Overwrite Mode**: Submode with boardgame-text-mode-toggle (F8)
+- **Drawing Tools**:
+  - boardgame-draw-pipette (F2): Sample character under cursor
+  - boardgame-draw-set-glyph (F3): Set drawing character
+  - boardgame-draw-set-foreground (F4): Set foreground color
+  - boardgame-draw-set-background (F5): Set background color
+  - boardgame-draw-recent-glyphs (F6): Select from recent symbols
+  - boardgame-draw-fill-region (F7): Fill region
+  - boardgame-draw-point-paint: Point-by-point painting
+- **Global state variables**: boardgame-draw--glyph, boardgame-draw--foreground, 
+boardgame-draw--background, boardgame-draw--recent-glyphs
+
+### 2. Updated boardgame.el
+- Added (boardgame--load-module "boardgame-draw")
+- Added forward declarations for all new functions
+
+### 3. Added Tests in test-boardgame-org.el (140 lines)
+- boardgame-test-pipette-sampling: Verifies pipette samples character correctly
+- boardgame-test-recent-symbol-history: Verifies recent symbol queue maintains order
+- boardgame-test-glyph-extraction-fallback: Verifies fallback glyph rules
+- boardgame-test-fill-region: Fills region with current drawing settings
+- boardgame-test-drawing-mode-stack-integration: Verifies drawing respects object layering
+- boardgame-test-text-mode-integration: Text mode replaces felt characters
+
+### 4. Architecture Invariants Preserved
+- Drawing Mode hides objects but doesn't modify them
+- Text mode provides standard text-editor-style character replacement
+- All objects remain independent with their own Org files
+- No automatic stack creation from overlapping objects
+
+The implementation follows the project's file-oriented architecture and Org-mode 
+serialization principles as specified in boardgame-org.md and boardgame-org-interface.md.
 
 *** DONE Туду используй файлы
 @boardgame-org.md @boardgame-org-interface.md @boardgame-implementation-plan.md
@@ -157,6 +148,13 @@ boardgame-implementation-plan.md
 *** DONE да внеси измение.
 и препроверь в целом документацию и исправь не точности если встретишь.
 
+** urgent 
+** TODO in progress
+*** используй файлы
+@boardgame-org.md @boardgame-org-interface.md @boardgame-implementation-plan.md
+implement the stage
+### Stage 6: Hands, Stacks, and Permanent Containers
+described in the file @boardgame-implementation-plan.md
 ** dezine
 *** ert
 #+begin_src emacs-lisp 
@@ -262,7 +260,7 @@ agy --conversation=1ad1fefa-813f-4a5c-95d7-728ff6a09cb0
 *** src block
 #+begin_src elisp
 (load "~/Dev/emacs/boardgame-org/boardgame.el")
-(boardgame-start "/home/buyn/Dev/emacs/boardgame-org/test-world/")
+(boardgame-start "/home/buyn/Dev/emacs/boardgame-org/test-world")
 #+end_src
 
 #+begin_src elisp
