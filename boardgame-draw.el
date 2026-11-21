@@ -183,12 +183,12 @@ Replaces the felt character under the cursor and advances point right."
     (boardgame-board-set-felt board x y char)
     (boardgame-render-cell board (current-buffer) x y)
     
-    ;; Advance point one cell to the right
-    (let ((pos (point)))
-      (forward-char 1)
+    ;; Advance point one cell to the right (to x+1, y)
+    (let ((new-pos (boardgame-render-coord-to-pos board (1+ x) y)))
+      (goto-char new-pos)
       (when (and boardgame-draw--text-mode
                  (eq (current-buffer) (window-buffer (selected-window))))
-        (boardgame-status-update x y "Text Mode"
+        (boardgame-status-update (1+ x) y "Text Mode"
                                  (format "Glyph: %c" char))))))
 
 ;; -----------------------------------------------------------------------------

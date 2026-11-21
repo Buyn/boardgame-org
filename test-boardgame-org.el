@@ -823,12 +823,14 @@
     (unwind-protect
         (progn
           (with-current-buffer board-buf
+            (transient-mark-mode 1)
             (boardgame-draw-toggle)
             (boardgame-draw-set-glyph ?#)
             (let ((start (boardgame-render-coord-to-pos board 3 3))
                   (end (boardgame-render-coord-to-pos board 5 4)))
               (goto-char start)
               (set-mark end)
+              (activate-mark)
               (should (use-region-p))
               (boardgame-draw-fill-region)))
           (dotimes (x 3)
@@ -853,18 +855,18 @@
               (boardgame-board-add-object board obj1)
               (boardgame-board-add-object board obj2)
               (boardgame-board-add-object board obj3)
-              (should (= (boardgame-board-object-count-at board 5 5) 3))))
-          (boardgame-draw-toggle)
-          (should boardgame-draw--mode)
-          (boardgame-board-goto-coord 5 5 board-buf)
-          (boardgame-draw-point-paint)
-          (should (= (boardgame-board-object-count-at board 5 5) 3))
-          (boardgame-draw-paint-cell 7 7)
-          (should (eq (boardgame-board-get-felt board 7 7) ?\s))
-          (should (eq (boardgame-board-get-objects board 7 7) nil))
-          (boardgame-draw-toggle)
-          (should-not boardgame-draw--mode)
-          (should (= (boardgame-board-object-count-at board 5 5) 3)))
+              (should (= (boardgame-board-object-count-at board 5 5) 3)))
+            (boardgame-draw-toggle)
+            (should boardgame-draw--mode)
+            (boardgame-board-goto-coord 5 5 board-buf)
+            (boardgame-draw-point-paint)
+            (should (= (boardgame-board-object-count-at board 5 5) 3))
+            (boardgame-draw-paint-cell 7 7)
+            (should (eq (boardgame-board-get-felt board 7 7) ?\s))
+            (should (eq (boardgame-board-get-objects board 7 7) nil))
+            (boardgame-draw-toggle)
+            (should-not boardgame-draw--mode)
+            (should (= (boardgame-board-object-count-at board 5 5) 3))))
       (when (buffer-live-p board-buf) (kill-buffer board-buf))
       (when (buffer-live-p buf) (kill-buffer buf)))))
 
@@ -879,8 +881,7 @@
             (boardgame-draw-toggle)
             (should boardgame-draw--mode)
             (boardgame-text-mode-toggle)
-            (should boardgame-draw--text-mode))
-          (with-current-buffer board-buf
+            (should boardgame-draw--text-mode)
             (boardgame-board-goto-coord 3 2 board-buf)
             (boardgame-draw-set-glyph ?#)
             (boardgame-text-mode--insert-char ?X)
@@ -888,5 +889,162 @@
             (should (= (point) (boardgame-render-coord-to-pos board 4 2)))))
       (when (buffer-live-p board-buf) (kill-buffer board-buf))
       (when (buffer-live-p buf) (kill-buffer buf)))))
+
+;; -----------------------------------------------------------------------------
+;; Stage 6 Tests: Hands, Stacks, and Permanent Containers
+;; -----------------------------------------------------------------------------
+
+(ert-deftest boardgame-test-stack-file-consolidation ()
+  "Unit Test 6.2: Stack consolidation merges Org documents and deletes standalone files."
+  (let* ((tmp-dir (make-temp-file "boardgame-test-stack-" t))
+         (obj-dir (expand-file-name "objects" tmp-dir))
+         (stack-file (expand-file-name "stacks/test-stack.org" tmp-dir))
+         (file1 (expand-file-name "card1.org" obj-dir))
+         (file2 (expand-file-name "card2.org" obj-dir))
+         (file3 (expand-file-name "card3.org" obj-dir)))
+    (unwind-protect
+        (progn
+          (make-directory obj-dir t)
+          ;; Create three standalone object Org files
+          (with-temp-file file1
+            (insert "* Card Alpha\n:PROPERTIES:\n:GLYPH: A\n:OBJECT_TYPE: card\n:END:\nFirst card description.\n"))
+          (with-temp-file file2
+            (insert "* Card Beta\n:PROPERTIES:\n:GLYPH: B\n:OBJECT_TYPE: card\n:END:\nSecond card description.\n"))
+          (with-temp-file file3
+            (insert "* Card Gamma\n:PROPERTIES:\n:GLYPH: G\n:OBJECT_TYPE: card\n:END:\nThird card description.\n"))
+          ;; Verify they exist on disk
+          (should (file-exists-p file1))
+          (should (file-exists-p file2))
+          (should (file-exists-p file3))
+
+          ;; Perform stack consolidation
+          (boardgame-stack-consolidate-files (list file1 file2 file3) stack-file "Consolidated Test Stack" "test-stack")
+
+          ;; 1. Consolidated stack file must exist
+          (should (file-exists-p stack-file))
+          ;; 2. Original three files must no longer exist on disk
+          (should-not (file-exists-p file1))
+          (should-not (file-exists-p file2))
+          (should-not (file-exists-p file3))
+
+          ;; 3. Check stack file contents
+          (with-temp-buffer
+            (insert-file-contents stack-file)
+            (goto-char (point-min))
+            (should (search-forward "Card Alpha" nil t))
+            (goto-char (point-min))
+            (should (search-forward "Card Beta" nil t))
+            (goto-char (point-min))
+            (should (search-forward "Card Gamma" nil t))
+            (goto-char (point-min))
+            (should (search-forward ":GLYPH: $" nil t))))
+      (when (file-exists-p tmp-dir)
+        (delete-directory tmp-dir t)))))
+
+(ert-deftest boardgame-test-container-draw-file-preservation ()
+  "Integration Test 6.3: Drawing from container preserves standalone object Org files."
+  (let* ((tmp-dir (make-temp-file "boardgame-test-container-" t))
+         (obj-dir (expand-file-name "objects" tmp-dir))
+         (c-dir (expand-file-name "containers" tmp-dir))
+         (file1 (expand-file-name "item1.org" obj-dir))
+         (file2 (expand-file-name "item2.org" obj-dir))
+         (c-file (expand-file-name "deck.org" c-dir))
+         (board (boardgame-board-create-empty "Container Test" 20 20 ?\.)))
+    (unwind-protect
+        (progn
+          (make-directory obj-dir t)
+          (make-directory c-dir t)
+          ;; Create two standalone object Org files
+          (with-temp-file file1
+            (insert "* Potion of Healing\n:PROPERTIES:\n:GLYPH: H\n:OBJECT_TYPE: potion\n:END:\nHeals 5 HP.\n"))
+          (with-temp-file file2
+            (insert "* Scroll of Fire\n:PROPERTIES:\n:GLYPH: S\n:OBJECT_TYPE: scroll\n:END:\nCasts fireball.\n"))
+
+          ;; Create container and add the two objects
+          (let ((c-rel (boardgame-container-create "deck" "Test Deck" "D" tmp-dir)))
+            (setf (boardgame-board-file board) (expand-file-name "board.org" tmp-dir))
+            (let ((c-obj (boardgame-object-create
+                          :name "Test Deck"
+                          :x 5 :y 5
+                          :glyph "D"
+                          :file c-rel
+                          :type "container")))
+              (boardgame-board-add-object board c-obj)
+              ;; Add objects to container
+              (boardgame-container-add-object c-obj file1 tmp-dir)
+              (boardgame-container-add-object c-obj file2 tmp-dir)
+
+              ;; Verify both files exist
+              (should (file-exists-p file1))
+              (should (file-exists-p file2))
+
+              ;; Draw top object onto board at (6, 5)
+              (let ((drawn-obj (boardgame-container-draw-to-board c-obj 6 5 :top board tmp-dir)))
+                (should drawn-obj)
+                (should (string-equal (boardgame-object-name drawn-obj) "Potion of Healing"))
+                (should (= (boardgame-object-x drawn-obj) 6))
+                (should (= (boardgame-object-y drawn-obj) 5))
+
+                ;; Crucial invariant: BOTH standalone files must remain intact on disk
+                (should (file-exists-p file1))
+                (should (file-exists-p file2))))))
+      (when (file-exists-p tmp-dir)
+        (delete-directory tmp-dir t)))))
+
+(ert-deftest boardgame-test-hand-place-and-take ()
+  "Integration Test: Verify place-on-board and take operations with hand Org file."
+  (let* ((tmp-dir (make-temp-file "boardgame-test-hand-" t))
+         (hand-file (expand-file-name "hand.org" tmp-dir))
+         (board (boardgame-board-create-empty "Hand Test" 20 20 ?\.))
+         (board-buf (boardgame-board-setup-buffer board))
+         (boardgame-current-world-directory tmp-dir)
+         (boardgame-active-hand-file hand-file))
+    (unwind-protect
+        (progn
+          (setf (boardgame-board-file board) (expand-file-name "board.org" tmp-dir))
+          (setq boardgame-current-board-buffer board-buf)
+          ;; Initialize hand file with subtrees
+          (with-temp-file hand-file
+            (insert "* Hand: Player Hand\n:PROPERTIES:\n:HAND_OWNER: Player1\n:END:\n\n** Subtrees\n*** Sword of Light\n:PROPERTIES:\n:GLYPH: S\n:OBJECT_TYPE: weapon\n:END:\nA radiant sword.\n"))
+
+          ;; Open hand file in buffer
+          (let ((hand-buf (find-file-noselect hand-file)))
+            (unwind-protect
+                (with-current-buffer hand-buf
+                  (goto-char (point-min))
+                  (search-forward "Sword of Light")
+                  (org-back-to-heading)
+                  ;; Place on board at (3, 3)
+                  (boardgame-place-on-board board 3 3))
+              (when (buffer-live-p hand-buf)
+                (kill-buffer hand-buf))))
+
+          ;; Verify placed object on board
+          (let ((objs (boardgame-board-get-objects board 3 3)))
+            (should (= (length objs) 1))
+            (let* ((placed (car objs))
+                   (standalone-file (expand-file-name (boardgame-object-file placed) tmp-dir)))
+              (should (string-equal (boardgame-object-name placed) "Sword of Light"))
+              (should (string-equal (boardgame-object-glyph placed) "S"))
+              ;; Standalone file was created in objects/
+              (should (file-exists-p standalone-file))
+
+              ;; Now take it back into hand
+              (with-current-buffer board-buf
+                (boardgame-board-goto-coord 3 3 board-buf)
+                (boardgame-hand-take 3 3))
+
+              ;; Object removed from board
+              (should (null (boardgame-board-get-objects board 3 3)))
+              ;; Standalone file deleted
+              (should-not (file-exists-p standalone-file))
+
+              ;; Transferred back into hand file
+              (with-temp-buffer
+                (insert-file-contents hand-file)
+                (goto-char (point-min))
+                (should (search-forward "Sword of Light" nil t))))))
+      (when (buffer-live-p board-buf) (kill-buffer board-buf))
+      (when (file-exists-p tmp-dir) (delete-directory tmp-dir t)))))
 
 ;;; test-boardgame-org.el ends here
