@@ -97,6 +97,34 @@
 (declare-function boardgame-open-test-world "boardgame-board")
 (declare-function boardgame-test-world-directory "boardgame-board")
 
+;; Stage 6 forward declarations
+(declare-function boardgame-stack-consolidate "boardgame-stack")
+(declare-function boardgame-stack-consolidate-files "boardgame-stack")
+(declare-function boardgame-stack-expand "boardgame-stack")
+(declare-function boardgame-container-create "boardgame-container")
+(declare-function boardgame-container-add-object "boardgame-container")
+(declare-function boardgame-container-draw-top "boardgame-container")
+(declare-function boardgame-container-draw-bottom "boardgame-container")
+(declare-function boardgame-container-draw-random "boardgame-container")
+(declare-function boardgame-container-shuffle "boardgame-container")
+(declare-function boardgame-container-layout-contents "boardgame-container")
+(declare-function boardgame-container-draw-to-board "boardgame-container")
+(declare-function boardgame-hand-get-file "boardgame-hand")
+(declare-function boardgame-open-hand "boardgame-hand")
+(declare-function boardgame-place-on-board "boardgame-hand")
+(declare-function boardgame-hand-take "boardgame-hand")
+
+;; Stage 7 forward declarations
+(declare-function boardgame-marker-generate-heading "boardgame-marker")
+(declare-function boardgame-marker-generate-filename "boardgame-marker")
+(declare-function boardgame-marker-generate-doc "boardgame-marker")
+(declare-function boardgame-create-marker "boardgame-marker")
+(declare-function boardgame-navigate-to-board-coord "boardgame-marker")
+(declare-function boardgame-execute-object-block "boardgame-commands")
+(declare-function boardgame-execute-board-block "boardgame-commands")
+(declare-function boardgame-describe-object "boardgame-commands")
+(declare-function boardgame-open-object "boardgame-commands")
+
 ;; -----------------------------------------------------------------------------
 ;; Architectural Invariant Tests
 ;; -----------------------------------------------------------------------------
@@ -115,7 +143,12 @@
   (should-not (featurep 'boardgame-status))
   (should-not (featurep 'boardgame-object))
   (should-not (featurep 'boardgame-render))
-  (should-not (featurep 'boardgame-board)))
+  (should-not (featurep 'boardgame-board))
+  (should-not (featurep 'boardgame-stack))
+  (should-not (featurep 'boardgame-container))
+  (should-not (featurep 'boardgame-hand))
+  (should-not (featurep 'boardgame-marker))
+  (should-not (featurep 'boardgame-commands)))
 
 ;; -----------------------------------------------------------------------------
 ;; Stage 1 Tests
@@ -1044,6 +1077,109 @@
                 (insert-file-contents hand-file)
                 (goto-char (point-min))
                 (should (search-forward "Sword of Light" nil t))))))
+      (when (buffer-live-p board-buf) (kill-buffer board-buf))
+      (when (file-exists-p tmp-dir) (delete-directory tmp-dir t)))))
+
+;; -----------------------------------------------------------------------------
+;; Stage 7 Tests: Navigation Markers, Code Execution, and Interactive Commands
+;; -----------------------------------------------------------------------------
+
+(ert-deftest boardgame-test-marker-heading-generation ()
+  "Unit Test 7.1: Verify marker heading and property drawer generation."
+  (let* ((heading (boardgame-marker-generate-heading "board-b.org" 15 20))
+         (doc (boardgame-marker-generate-doc "board-b.org" 15 20 heading)))
+    ;; Verify heading string format: Marker (board-b.org) (15, 20)
+    (should (string-equal heading "Marker (board-b.org) (15, 20)"))
+    ;; Verify properties drawer fields
+    (with-temp-buffer
+      (insert doc)
+      (goto-char (point-min))
+      (should (re-search-forward "^\\* Marker (board-b\\.org) (15, 20)" nil t))
+      (should (re-search-forward "^:OBJECT_TYPE: marker" nil t))
+      (should (re-search-forward "^:GLYPH: \\^" nil t))
+      (should (re-search-forward "^:FG: white" nil t))
+      (should (re-search-forward "^:DESTINATION_BOARD: board-b\\.org" nil t))
+      (should (re-search-forward "^:DESTINATION_X: 15" nil t))
+      (should (re-search-forward "^:DESTINATION_Y: 20" nil t))
+      (should (re-search-forward "#\\+begin_src emacs-lisp" nil t))
+      (should (re-search-forward "boardgame-navigate-to-board-coord" nil t)))))
+
+(ert-deftest boardgame-test-cross-board-marker-jump ()
+  "Integration Test 7.2: Trigger navigation marker to jump point across test-world boards."
+  (let* ((world-dir (expand-file-name "test-world" boardgame--directory)))
+    (unless (file-exists-p world-dir)
+      (setq world-dir (expand-file-name "test-world" default-directory)))
+    (let* ((board-a-file (expand-file-name "board.org" world-dir))
+           (board-b-file (expand-file-name "board-b.org" world-dir))
+           (boardgame-current-world-directory world-dir)
+           (board-a (boardgame-deserialize-board-file board-a-file))
+           (board-buf-a (boardgame-board-setup-buffer board-a)))
+      (unwind-protect
+          (progn
+            (setf (boardgame-board-file board-a) board-a-file)
+            (setq boardgame-current-board-buffer board-buf-a)
+            ;; Create a marker pointing to board-b.org at (10, 5)
+            (let* ((marker-doc (boardgame-marker-generate-doc "board-b.org" 10 5))
+                   (marker-rel-file "objects/test-cross-marker.org")
+                   (marker-full-file (expand-file-name marker-rel-file world-dir)))
+              (make-directory (file-name-directory marker-full-file) t)
+              (with-temp-file marker-full-file
+                (insert marker-doc))
+              (let ((marker-obj (boardgame-object-create
+                                 :name "Marker (board-b.org) (10, 5)"
+                                 :x 5 :y 5
+                                 :glyph "^"
+                                 :file marker-rel-file
+                                 :type "marker"
+                                 :fg "white"
+                                 :properties '(("DESTINATION_BOARD" . "board-b.org")
+                                               ("DESTINATION_X" . "10")
+                                               ("DESTINATION_Y" . "5")))))
+                (boardgame-board-add-object board-a marker-obj)
+                ;; Execute marker source block
+                (let ((target-buf (boardgame-execute-object-block marker-obj)))
+                  (should (bufferp target-buf))
+                  (should (buffer-live-p target-buf))
+                  (with-current-buffer target-buf
+                    (let ((data (bound-and-true-p boardgame-board--data))
+                          (coord (boardgame-board-current-coord)))
+                      (should data)
+                      (should (string-equal (file-name-nondirectory (boardgame-board-file data)) "board-b.org"))
+                      (should (= (car coord) 10))
+                      (should (= (cdr coord) 5))))
+                  ;; Clean up target buffer if opened
+                  (when (and target-buf (not (eq target-buf board-buf-a)) (buffer-live-p target-buf))
+                    (kill-buffer target-buf)))))
+            ;; Clean up created marker file
+            (let ((mfile (expand-file-name "objects/test-cross-marker.org" world-dir)))
+              (when (file-exists-p mfile) (delete-file mfile))))
+        (when (buffer-live-p board-buf-a) (kill-buffer board-buf-a))))))
+
+(ert-deftest boardgame-test-commands-and-code-execution ()
+  "Integration Test: Verify interactive commands and Babel code execution."
+  (let* ((tmp-dir (make-temp-file "boardgame-test-cmd-" t))
+         (board (boardgame-board-create-empty "Cmd Test" 20 20 ?\.))
+         (board-buf (boardgame-board-setup-buffer board))
+         (boardgame-current-world-directory tmp-dir)
+         (bfile (expand-file-name "board.org" tmp-dir)))
+    (unwind-protect
+        (progn
+          (setf (boardgame-board-file board) bfile)
+          (setq boardgame-current-board-buffer board-buf)
+          ;; Create marker at current coord (0, 0)
+          (with-current-buffer board-buf
+            (boardgame-board-goto-coord 2 3 board-buf)
+            (let ((marker (boardgame-create-marker board-buf)))
+              (should marker)
+              (should (string-equal (boardgame-object-glyph marker) "^"))
+              (should (= (boardgame-object-x marker) 2))
+              (should (= (boardgame-object-y marker) 3))
+              (should (file-exists-p (expand-file-name (boardgame-object-file marker) tmp-dir)))))
+          ;; Test describe object
+          (with-current-buffer board-buf
+            (boardgame-board-goto-coord 2 3 board-buf)
+            ;; Should not throw error
+            (boardgame-describe-object)))
       (when (buffer-live-p board-buf) (kill-buffer board-buf))
       (when (file-exists-p tmp-dir) (delete-directory tmp-dir t)))))
 

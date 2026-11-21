@@ -77,7 +77,7 @@ When nil, the user is prompted to select or create a world upon startup."
   (let ((file (expand-file-name module-name boardgame--directory)))
     (load file nil t)))
 
-;; Internal module loading for Stages 1, 2, 3, 4, 5 & 6
+;; Internal module loading for Stages 1, 2, 3, 4, 5, 6 & 7
 (boardgame--load-module "boardgame-mode")
 (boardgame--load-module "boardgame-window")
 (boardgame--load-module "boardgame-data")
@@ -92,6 +92,8 @@ When nil, the user is prompted to select or create a world upon startup."
 (boardgame--load-module "boardgame-stack")
 (boardgame--load-module "boardgame-container")
 (boardgame--load-module "boardgame-hand")
+(boardgame--load-module "boardgame-marker")
+(boardgame--load-module "boardgame-commands")
 
 (declare-function boardgame-window-initialize "boardgame-window" (&optional world-directory))
 (declare-function boardgame-world-resolve-and-activate "boardgame-world" (&optional world-dir))

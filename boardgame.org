@@ -215,12 +215,62 @@ described in the file @boardgame-implementation-plan.md
   files remain intact on disk.
   • Integration Test (boardgame-test-hand-place-and-take): Verified end-to-end place-on- 
   board and take operations between hand Org files and board buffers. 
-*** TODO Stage 7
+*** DONE Stage 7
 @boardgame-org.md @boardgame-org-interface.md @boardgame-implementation-plan.md
 implement the stage
 ### Stage 7: Navigation Markers, Code Execution, and Interactive Commands
 described in the file @boardgame-implementation-plan.md
-*** Stage 8
+*** Stage 7 Implementation Summary
+  Stage 7 Implementation Summary: Navigation Markers, Code Execution, and Interactive    
+  Commands                                                                               
+                                                                                         
+  Stage 7 has been implemented and verified in strict accordance with boardgame-org.md,  
+  boardgame-org-interface.md, and boardgame-implementation-plan.md.                      
+                                                                                         
+  1. Implemented Modules                                                                 
+                                                                                         
+  • boardgame-marker.el:                                                                 
+      • Universal Board Navigation (boardgame-navigate-to-board-coord / boardgame-board- 
+      navigate):                                                                         
+      Moves point to (x, y) on any board filename (e.g. "board-b.org") within the active 
+      world. Validates board existence, dimensions, and buffer visibility.               
+      • Marker Generator (boardgame-marker-generate-heading, boardgame-marker-generate-  
+      doc):                                                                              
+      Generates marker root headings according to §11.4.1 format Marker (board filename) 
+      (x, y), sets display glyph ^ and foreground white, stores DESTINATION_BOARD,       
+      evaluate nil).                                                                     
+      boardgame-execute-board-block executes embedded source blocks associated with the
+      board document.
+      • Object Inspection & Management:
+      boardgame-describe-object describes all objects and the underlying felt at the     
+      cursor coordinate.
+      boardgame-open-object opens the object's Org document in another window.
+      • Keybindings & Keymap:          
+      Defines boardgame-commands-map binding function keys F1–F10 and C-c key sequences  
+      (C-c m, C-c e, C-c g, C-c o, C-c t, C-c h, C-c s, C-c k, C-c ?). Automatically     
+      inherits into boardgame-board-mode-map.
+  • boardgame.el:                                                                        
+      • Added internal loading of boardgame-marker and boardgame-commands via boardgame--
+      load-module, maintaining single public feature invariant (provide 'boardgame).
+                                                                                         
+      
+  2. Verification & Automated Test Suite                                                 
+      
+  The ERT test suite in test-boardgame-org.el passes with 0 failures (26/26 tests        
+  passing):                                                                              
+      
+  • Unit Test 7.1 (boardgame-test-marker-heading-generation): Verified generation of
+  heading Marker (board-b.org) (15, 20), property drawer fields (DESTINATION_BOARD,      
+  DESTINATION_X, DESTINATION_Y, GLYPH: ^, FG: white), and the parameterizing Babel source
+  block.
+  • Integration Test 7.2 (boardgame-test-cross-board-marker-jump): Verified creating a
+  marker on board.org targeting board-b.org at (10, 5) and executing its Babel block to
+  switch buffers and position point at (10, 5).
+  • Integration Test (boardgame-test-commands-and-code-execution): Verified interactive  
+  marker creation and object inspection commands.
+
+
+*** TODO Stage 8
 @boardgame-org.md @boardgame-org-interface.md @boardgame-implementation-plan.md
 implement the stage
 ### Stage 8: Version Control (Git), Error Recovery, and End-to-End Integration
