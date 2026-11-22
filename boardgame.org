@@ -63,93 +63,6 @@ mv /home/buyn/Downloads/boardgame-implementation-plan.md /home/buyn/Dev/emacs/bo
 ** 
 * Kanban
 ** DONE done
-*** DONE Туду используй файлы
-@boardgame-org.md @boardgame-org-interface.md @boardgame-implementation-plan.md
-implement the stage
-### Stage 5: Drawing Mode (Felt Layer) and Text Overwrite Mode
-described in the file @boardgame-implementation-plan.md
-*** DONE ## Summary Stage 5
-
-I've implemented Stage 5: Drawing Mode (Felt Layer) and Text Overwrite Mode for boardgame.org
-. Here's what was completed:
-
-### 1. Created boardgame-draw.el (292 lines)
-- **Drawing Mode**: Toggle with boardgame-draw-toggle (F1)
-- **Text Overwrite Mode**: Submode with boardgame-text-mode-toggle (F8)
-- **Drawing Tools**:
-  - boardgame-draw-pipette (F2): Sample character under cursor
-  - boardgame-draw-set-glyph (F3): Set drawing character
-  - boardgame-draw-set-foreground (F4): Set foreground color
-  - boardgame-draw-set-background (F5): Set background color
-  - boardgame-draw-recent-glyphs (F6): Select from recent symbols
-  - boardgame-draw-fill-region (F7): Fill region
-  - boardgame-draw-point-paint: Point-by-point painting
-- **Global state variables**: boardgame-draw--glyph, boardgame-draw--foreground, 
-boardgame-draw--background, boardgame-draw--recent-glyphs
-
-### 2. Updated boardgame.el
-- Added (boardgame--load-module "boardgame-draw")
-- Added forward declarations for all new functions
-
-### 3. Added Tests in test-boardgame-org.el (140 lines)
-- boardgame-test-pipette-sampling: Verifies pipette samples character correctly
-- boardgame-test-recent-symbol-history: Verifies recent symbol queue maintains order
-- boardgame-test-glyph-extraction-fallback: Verifies fallback glyph rules
-- boardgame-test-fill-region: Fills region with current drawing settings
-- boardgame-test-drawing-mode-stack-integration: Verifies drawing respects object layering
-- boardgame-test-text-mode-integration: Text mode replaces felt characters
-
-### 4. Architecture Invariants Preserved
-- Drawing Mode hides objects but doesn't modify them
-- Text mode provides standard text-editor-style character replacement
-- All objects remain independent with their own Org files
-- No automatic stack creation from overlapping objects
-
-The implementation follows the project's file-oriented architecture and Org-mode 
-serialization principles as specified in boardgame-org.md and boardgame-org-interface.md.
-
-*** DONE Туду используй файлы
-@boardgame-org.md @boardgame-org-interface.md @boardgame-implementation-plan.md
-implement the stage
-### Stage 4: Board Rendering, Object Stacking, Root Test World Setup, and Non-Wrapping Navigation
-described in the file @boardgame-implementation-plan.md
-
-*** DONE используй файлы
-/compact
-/model cloud
-@boardgame-org.md @boardgame-org-interface.md @boardgame-implementation-plan.md
-implement the stage
-### Stage 3: World Management, Session State, and Unified Logging
-described in the file @boardgame-implementation-plan.md
-and make sure that the previous steps are accurately implemented in accordance with the documentation.
-
-*** DONE используй файлы 
-boardgame-org.md
-boardgame-org-interface.md
-boardgame-implementation-plan.md
-реализуй этап
-### Stage 2: In-Memory Data Model, Parsing, and Org File Serialization
-описаный в файле boardgame-implementation-plan.md
-
-*** DONE Тебе не кажется что на 4 этапе нужнно добавить тестовый мир?
-Который будет загружатся, и сохранятся чтоб убедится что всё правельно отображается.
-Тоесть сделать орг фаил, тестового(дебагерсково типа), чтоб по нему можно было убедится, что хотьбы в ожидаемомо, вареанте всё работает как ожидается?
-Или я не заметил и требование добавить такой мир уже есть в документации?
-
-*** DONE Да тогда довай сделаем изменения.
-Укажим его налияия. что он должен лежать в отдельной папке в корне проекта.
-и последушие теты должны включать его. Используя его для тестирования новых фичь. И обновить\добавить тесты предыдуших фичь на основе этого мира.
-Хорошоая идея? или видишь лучше?
-
-*** DONE Почему ты предлогаешь отдельную папку fixtures?
-а не ложить всё в корень проекта в отдельных папках? Тоесть у нас что будет атмк много фиекстур чтоб их в отдельную папку прятать?
-и почему debug-world а не test-world?
-
-*** DONE да внеси измение.
-и препроверь в целом документацию и исправь не точности если встретишь.
-
-** urgent 
-** TODO in progress
 *** DONE Stage 6
 @boardgame-org.md @boardgame-org-interface.md @boardgame-implementation-plan.md
 implement the stage
@@ -220,7 +133,7 @@ described in the file @boardgame-implementation-plan.md
 implement the stage
 ### Stage 7: Navigation Markers, Code Execution, and Interactive Commands
 described in the file @boardgame-implementation-plan.md
-*** Stage 7 Implementation Summary
+*** DONE Stage 7 Implementation Summary
   Stage 7 Implementation Summary: Navigation Markers, Code Execution, and Interactive    
   Commands                                                                               
                                                                                          
@@ -270,11 +183,68 @@ described in the file @boardgame-implementation-plan.md
   marker creation and object inspection commands.
 
 
-*** TODO Stage 8
-@boardgame-org.md @boardgame-org-interface.md @boardgame-implementation-plan.md
-implement the stage
-### Stage 8: Version Control (Git), Error Recovery, and End-to-End Integration
-described in the file @boardgame-implementation-plan.md
+** urgent 
+** TODO in progress
+*** make a readme.org file
+with the description of the complete instructions of the user.
+with a list of default keys.
+with start-up instructions.
+and necessary functions with a parametric description and examples. For example, how to launch a package with an setingup on the world to open path.
+all that the user should know at the moment
+
+с описание полной инструкции пользователя.
+со списком установленых по умолчанию клавишь.
+с иструкцией к запуска.
+и нужных функций с описание мпараметрова.
+вообще всё что должен знать пользовательна данный момент
+
+сделай перевод тексат на английский.
+*** What is included in readme.org:
+
+  I have created readme.org with the complete user documentation for the current         
+  implementation of boardgame.org.
+  
+  What is included in readme.org:
+  
+  1. Start-Up Instructions & World Setup:
+      • Quick start using (boardgame-open-test-world) to launch the 3-window frame with  
+      test-world/board.org.
+      • Launching boardgame-start with an explicit world path and opening a board via    
+      boardgame-open-board.
+      • Configuring boardgame-default-world-directory, window layout ratios, and active  
+      hand file in init.el.
+      • Initializing a brand-new world directory and creating/serializing a new board    
+      from scratch.
+  2. Default Keybindings Reference:
+      • Board Mode (boardgame-board-mode-map): Function keys (<f1> through <f10>) and C-c
+      key chords (C-c ?, C-c o, C-c e, C-c m, C-c t, C-c h, C-c k, C-c s, C-c d, C-c p,  
+      C-c r, C-c i, C-c g).
+      • Drawing Mode (boardgame-draw-mode-map): Function keys (<f1>–<f8>) and C-l for    
+      brush glyph/color selection, pipette sampling, recent glyphs, region filling, and  
+      Text Overwrite Mode.
+  3. Customization & Global State Variables:
+      • Table of all defcustom options (boardgame-default-world-directory, boardgame-    
+      board-width-ratio, boardgame-log-height-ratio, boardgame-status-area-enabled,      
+      boardgame-active-hand-file, etc.) and global tracking variables.
+  4. Parametric Function Reference & Examples:
+      • World, Frame & Board Management: boardgame-start, boardgame-open-test-world,     
+      boardgame-open-board, boardgame-save-board, boardgame-board-goto-coord, boardgame- 
+      world-switch.
+      • Cross-Board Navigation & Markers: boardgame-navigate-to-board-coord (boardgame-  
+      board-navigate), boardgame-create-marker.
+      • Hands & Universal Org Transfers: boardgame-open-hand, boardgame-place-on-board,  
+      boardgame-hand-take.
+      • Consolidated Stacks: boardgame-stack-create-at-point, boardgame-stack-consolidate,
+      boardgame-stack-expand.
+      • Permanent Containers: boardgame-container-create, boardgame-container-add-object,
+      boardgame-container-draw-top / draw-bottom / draw-random, boardgame-container-draw-
+      to-board, boardgame-container-shuffle, boardgame-container-layout-contents.        
+      • Object Inspection & Org-Babel Execution: boardgame-execute-object-block,         
+      boardgame-execute-board-block, boardgame-describe-object, boardgame-open-object.   
+      • Drawing Mode, In-Memory Data API & Shared World Logging: boardgame-object-create,
+      boardgame-board-add-object, boardgame-log-append, and ERT test execution           
+      instructions. 
+
 ** dezine
 *** ert
 #+begin_src emacs-lisp 
@@ -346,6 +316,11 @@ F boardgame-test-stack-consolidation-and-glyph
 #+end_src
 
 ** todo
+*** Stage 8
+@boardgame-org.md @boardgame-org-interface.md @boardgame-implementation-plan.md
+implement the stage
+### Stage 8: Version Control (Git), Error Recovery, and End-to-End Integration
+described in the file @boardgame-implementation-plan.md
 *** aider
 aider --architect --model gemini/gemini-2.5-pro boardgame-org-interface.md boardgame-org.md
 *** описать систему именования создаваемых оргов

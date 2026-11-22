@@ -1,0 +1,503 @@
+#+TITLE: boardgame.org — User Guide & Complete Reference
+#+AUTHOR: boardgame.org contributors
+#+OPTIONS: toc:3 num:t
+
+* Overview
+
+=boardgame.org= is a text-based tabletop game engine for GNU Emacs that uses Org-mode documents as the human-readable source of truth for game boards, independent objects, player hands, consolidated stacks, permanent containers (decks/bags), navigation markers, and session logs.
+
+Key architectural principles:
+- *Single Public Feature:* The entire engine loads via =(require 'boardgame)= (or loading =boardgame.el=), without polluting the global Emacs feature namespace with internal module names.
+- *Dedicated 3-Window Game Frame:* Launches in a dedicated Emacs frame split into an 80% wide Board Window and a 20% wide right column (split vertically 80% for the shared World Log and 20% for the Status Window), leaving your existing Emacs frames untouched.
+- *Non-Wrapping Board Grid:* The board buffer is a normal Emacs text buffer with =truncate-lines= set to =t=, allowing standard cursor movement (=C-n=, =C-p=, =C-f=, =C-b=, arrow keys, or Evil normal-state =h/j/k/l=) and smooth horizontal/vertical scrolling over boards of any dimension.
+- *Explicit Context Semantics:*
+  - *Objects* live as standalone Org files in =objects/=.
+  - *Hands* are Org files (e.g., =hand.org=) where each item is stored as an Org heading subtree.
+  - *Stacks* explicitly consolidate multiple objects into one Org file in =stacks/= (rendered as =$=) and delete the former standalone object files.
+  - *Permanent Containers* organize references to objects in =containers/= without merging or deleting the independent object Org files.
+  - *Navigation Markers* are ordinary objects (rendered as =^=) whose Org properties and Babel source blocks jump the cursor across boards and coordinates.
+
+-----
+
+* Start-Up Instructions & World Setup
+
+** 1. Quick Start with the Included Test World
+
+The fastest way to launch and explore =boardgame.org= with pre-populated boards (=board.org=, =board-b.org=), objects, stacks, a spell deck container, and a player hand is =boardgame-open-test-world=:
+
+#+begin_src emacs-lisp
+;; Add repository to load-path and load the package:
+(add-to-list 'load-path (expand-file-name "~/Dev/emacs/boardgame-org/"))
+(require 'boardgame)
+
+;; Launch the dedicated game frame and open test-world/board.org immediately:
+(boardgame-open-test-world)
+#+end_src
+
+Or interactively via =M-x boardgame-open-test-world=.
+
+** 2. Launching with a Specific World Path
+
+You can configure a default world directory or pass a world directory path directly to =boardgame-start=, and then open any board inside that world:
+
+*** Example A: Direct Path Startup
+#+begin_src emacs-lisp
+(add-to-list 'load-path (expand-file-name "~/Dev/emacs/boardgame-org/"))
+(require 'boardgame)
+
+;; 1. Initialize and activate the world directory in a dedicated game frame:
+(boardgame-start "~/Dev/emacs/boardgame-org/test-world")
+
+;; 2. Open the main board file in the active game frame:
+(boardgame-open-board "~/Dev/emacs/boardgame-org/test-world/board.org")
+#+end_src
+
+*** Example B: Configuring =boardgame-default-world-directory= in =init.el=
+#+begin_src emacs-lisp
+(add-to-list 'load-path (expand-file-name "~/Dev/emacs/boardgame-org/"))
+(require 'boardgame)
+
+;; Set the default world directory so `M-x boardgame-start` opens it automatically:
+(setq boardgame-default-world-directory
+      (expand-file-name "~/Dev/emacs/boardgame-org/test-world"))
+
+;; Customize window ratios if desired (defaults are 0.8 and 0.8):
+(setq boardgame-board-width-ratio 0.8
+      boardgame-log-height-ratio 0.8
+      boardgame-status-area-enabled t
+      boardgame-active-hand-file "hand.org")
+
+;; Launch the game frame:
+(boardgame-start)
+(boardgame-open-board (expand-file-name "board.org" boardgame-current-world-directory))
+#+end_src
+
+*** Example C: Creating a Brand New World Directory
+If you pass a non-existent directory path to =boardgame-world-initialize= or =boardgame-start=, the engine automatically creates the standard directory structure (=boards/=, =objects/=, =hands/=, =containers/=) and initializes the shared log buffer =<world-name>-log.org=:
+
+#+begin_src emacs-lisp
+(require 'boardgame)
+
+;; Create and activate a new world directory:
+(let ((my-world (expand-file-name "~/my-campaign-world")))
+  (boardgame-world-initialize my-world)
+  (boardgame-start my-world)
+  ;; Create a new 80x24 empty board, save it, and open it in the frame:
+  (let ((board (boardgame-board-create-empty "Main Map" 80 24 ?\.))
+        (board-file (expand-file-name "board.org" my-world)))
+    (boardgame-serialize-board-to-file board board-file)
+    (boardgame-open-board board-file)))
+#+end_src
+
+-----
+
+* Default Keybindings Reference
+
+** 1. Board Mode Keymap (=boardgame-board-mode-map=)
+
+These keys are active whenever a board buffer is focused in =boardgame-board-mode=. Standard Emacs cursor motion (=C-f=, =C-b=, =C-n=, =C-p=, arrow keys) and Evil normal-mode keys (=h=, =j=, =k=, =l=) work naturally without line wrapping.
+
+*** Function Keys (=F1= – =F10=)
+| Key     | Command                         | Description                                                                 |
+|---------+---------------------------------+-----------------------------------------------------------------------------|
+| =<f1>=  | =boardgame-describe-object=      | Display felt character and all objects stacked at the current cursor cell.  |
+| =<f2>=  | =boardgame-open-object=          | Open the standalone Org file of the top object under the cursor.            |
+| =<f3>=  | =boardgame-execute-object-block= | Execute the Org-Babel (=emacs-lisp=) source block of the object at point.   |
+| =<f4>=  | =boardgame-create-marker=        | Create a navigation marker (=^=) at point storing current board and coords. |
+| =<f5>=  | =boardgame-hand-take=            | Take the top object (or top item from a container/stack) into active hand.  |
+| =<f6>=  | =boardgame-open-hand=            | Open the active player hand Org file (=hand.org=) in another window.        |
+| =<f7>=  | =boardgame-stack-create-at-point=| Explicitly consolidate all objects at point into a single Stack (=stacks/=).|
+| =<f8>=  | =boardgame-draw-toggle=          | Toggle Drawing Mode on/off (temporarily hides objects to edit felt).        |
+| =<f9>=  | =boardgame-save-board=           | Save current in-memory board state back to its Org file.                    |
+| =<f10>= | =boardgame-execute-board-block=  | Execute an Org-Babel source block belonging to the current board Org file.  |
+
+*** =C-c= Key Chords in Board Mode
+| Key Chord | Command                          | Description                                                             |
+|-----------+----------------------------------+-------------------------------------------------------------------------|
+| =C-c ?=   | =boardgame-describe-object=      | Inspect cell felt and stacked objects at cursor.                        |
+| =C-c o=   | =boardgame-open-object=          | Open the Org document for the top object at cursor.                     |
+| =C-c e=   | =boardgame-execute-object-block= | Execute the Org-Babel block of the object at cursor.                    |
+| =C-c m=   | =boardgame-create-marker=        | Create a navigation marker (=^=) at the current board cell.             |
+| =C-c t=   | =boardgame-hand-take=            | Take object (or top item of container/stack) at cursor into hand.       |
+| =C-c h=   | =boardgame-open-hand=            | Open the active hand Org file (=hand.org=).                             |
+| =C-c k=   | =boardgame-stack-create-at-point=| Consolidate objects at cursor into a single Stack Org document.         |
+| =C-c s=   | =boardgame-save-board=           | Save the active board to its Org file.                                  |
+| =C-c d=   | =boardgame-draw-toggle=          | Toggle Drawing Mode on/off.                                             |
+| =C-c p=   | =boardgame-draw-point-paint=     | Paint the felt cell under the cursor with the current drawing brush.    |
+| =C-c r=   | =boardgame-draw-fill-region=     | Fill the active rectangular region with the current drawing glyph.      |
+| =C-c i=   | =boardgame-draw-pipette=         | Sample the felt character under the cursor into the active brush.       |
+| =C-c g=   | =boardgame-draw-set-glyph= / =boardgame-navigate-to-board-coord= | Set drawing glyph (when drawing hook active) or navigate to board/coord.|
+
+** 2. Drawing Mode Keymap (=boardgame-draw-mode-map=)
+
+When Drawing Mode is toggled on (=F8= or =C-c d=), objects are temporarily hidden so you can edit the underlying felt layer directly without affecting object placements or files.
+
+| Key     | Command                         | Description                                                           |
+|---------+---------------------------------+-----------------------------------------------------------------------|
+| =<f1>=  | =boardgame-draw-toggle=          | Exit/toggle Drawing Mode and restore object layer rendering.          |
+| =<f2>=  | =boardgame-draw-pipette=         | Sample felt glyph under cursor into active brush and recent history.  |
+| =<f3>=  | =boardgame-draw-set-glyph=       | Prompt for a character to use as the active drawing brush.            |
+| =<f4>=  | =boardgame-draw-set-foreground=  | Prompt for the active brush foreground color.                         |
+| =<f5>=  | =boardgame-draw-set-background=  | Prompt for the active brush background color.                         |
+| =<f6>=  | =boardgame-draw-recent-glyphs=   | Choose a glyph from the 10 most recently used drawing symbols.        |
+| =<f7>=  | =boardgame-draw-fill-region=     | Fill the active marked region rectangle with the current brush glyph. |
+| =<f8>=  | =boardgame-text-mode-toggle=     | Toggle Text Overwrite Mode (typing characters overwrites felt & moves right). |
+| =C-l=   | =boardgame-render-cell=          | Refresh rendering of the current cell.                                |
+
+-----
+
+* Customization Variables
+
+| Variable                          | Default     | Description                                                                 |
+|-----------------------------------+-------------+-----------------------------------------------------------------------------|
+| =boardgame-default-world-directory= | =nil=       | Default world path used by =boardgame-start= when no argument is given.     |
+| =boardgame-board-width-ratio=     | =0.8=       | Fraction of horizontal frame width allocated to the board window (80%).     |
+| =boardgame-log-height-ratio=      | =0.8=       | Fraction of right side column height allocated to the log window (80%).     |
+| =boardgame-status-area-enabled=   | =t=         | Whether to display the status window below the log window (20% height).     |
+| =boardgame-active-hand-file=      | ="hand.org"=| Relative filename (or path) of the active player hand Org file.             |
+| =boardgame-draw-default-foreground=| ="white"=  | Default foreground color in Drawing Mode.                                   |
+| =boardgame-draw-default-background=| ="black"=  | Default background color in Drawing Mode.                                   |
+
+Global state variables inspected by commands:
+- =boardgame-current-world-directory=: Path to the currently active world directory.
+- =boardgame-current-board-buffer=: Buffer of the currently active game board.
+
+-----
+
+* Complete Parametric Function Reference & Examples
+
+** 1. World, Frame & Board Management
+
+*** =boardgame-start= =(&optional world-directory)=
+- *Parameters:*
+  - =WORLD-DIRECTORY= (string or =nil=): Path to the world directory to activate. If omitted, uses =boardgame-default-world-directory= or prompts interactively.
+- *Returns:* The newly created dedicated Emacs game frame.
+- *Example:*
+  #+begin_src emacs-lisp
+  (boardgame-start "~/Dev/emacs/boardgame-org/test-world")
+  #+end_src
+
+*** =boardgame-open-test-world= =()=
+- *Parameters:* None (interactive command).
+- *Behavior:* Activates the built-in =test-world/= directory in the repository root, creates the dedicated 3-window game frame, deserializes =test-world/board.org=, and displays it alongside =test-world-log.org= and the status window.
+- *Returns:* The live board buffer for =test-world/board.org=.
+- *Example:*
+  #+begin_src emacs-lisp
+  (boardgame-open-test-world)
+  #+end_src
+
+*** =boardgame-open-board= =(file)= / =boardgame-board-open-file= =(file &optional frame)=
+- *Parameters:*
+  - =FILE= (string): Path to an Org board file (e.g., ="~/Dev/emacs/boardgame-org/test-world/board-b.org"=).
+  - =FRAME= (frame or =nil=): Optional target game frame. If omitted, uses the selected game frame or initializes a new one.
+- *Returns:* The prepared board buffer in =boardgame-board-mode=.
+- *Example:*
+  #+begin_src emacs-lisp
+  (boardgame-open-board "~/Dev/emacs/boardgame-org/test-world/board-b.org")
+  #+end_src
+
+*** =boardgame-save-board= =(&optional buffer)=
+- *Parameters:*
+  - =BUFFER= (buffer or =nil=): Board buffer to serialize and save. Defaults to the current buffer.
+- *Behavior:* Serializes the in-memory =boardgame-board= struct (header properties, =#+begin_src felt= block, and =** Objects= section) losslessly back to its Org file on disk.
+- *Example:*
+  #+begin_src emacs-lisp
+  (boardgame-save-board boardgame-current-board-buffer)
+  #+end_src
+
+*** =boardgame-board-goto-coord= =(x y &optional buffer)=
+- *Parameters:*
+  - =X= (integer): 0-based horizontal column coordinate (=0 <= X < width=).
+  - =Y= (integer): 0-based vertical row coordinate (=0 <= Y < height=).
+  - =BUFFER= (buffer or =nil=): Target board buffer (defaults to current buffer).
+- *Returns:* 1-based buffer character position corresponding to =(X, Y)=.
+- *Example:*
+  #+begin_src emacs-lisp
+  ;; Move point to coordinate (25, 10) on the active board:
+  (boardgame-board-goto-coord 25 10 boardgame-current-board-buffer)
+  #+end_src
+
+*** =boardgame-world-switch= =(new-world-dir)=
+- *Parameters:*
+  - =NEW-WORLD-DIR= (string): Path to the new world directory.
+- *Behavior:* Checks for any unsaved board buffers in the current world, prompts for confirmation if unsaved changes exist, and activates =NEW-WORLD-DIR=.
+- *Example:*
+  #+begin_src emacs-lisp
+  (boardgame-world-switch "~/Dev/emacs/boardgame-org/test-world")
+  #+end_src
+
+-----
+
+** 2. Cross-Board Navigation & Navigation Markers
+
+*** =boardgame-navigate-to-board-coord= =(board-file x y &optional frame)=
+*(Also aliased as =boardgame-board-navigate=)*
+- *Parameters:*
+  - =BOARD-FILE= (string or =nil=): Filename of the target board within the active world (e.g., ="board-b.org"=). Resolved inside =boardgame-current-world-directory= or its =boards/= subdirectory. If =nil=, targets the currently active board.
+  - =X= (integer): Target 0-based X coordinate.
+  - =Y= (integer): Target 0-based Y coordinate.
+  - =FRAME= (frame or =nil=): Optional target frame.
+- *Returns:* The target board buffer with point positioned at =(X, Y)=.
+- *Example:*
+  #+begin_src emacs-lisp
+  ;; Jump from the current board to (10, 5) on board-b.org:
+  (boardgame-navigate-to-board-coord "board-b.org" 10 5)
+  #+end_src
+
+*** =boardgame-create-marker= =(&optional board-buf-or-data)=
+- *Parameters:*
+  - =BOARD-BUF-OR-DATA= (buffer or =nil=): Optional board buffer (defaults to active board buffer).
+- *Behavior:*
+  1. Reads the current board's filename and cursor coordinates =(X, Y)=.
+  2. Generates a heading =Marker (<board-file>) (<x>, <y>)=.
+  3. Writes a standalone Org file in =objects/marker-<board>-<x>-<y>.org= with =:GLYPH: ^=, =:FG: white=, =:DESTINATION_BOARD:=, =:DESTINATION_X:=, =:DESTINATION_Y:=, and an executable =emacs-lisp= source block.
+  4. Places the marker object on the board at =(X, Y)=.
+- *Returns:* The created =boardgame-object= struct.
+- *Example:*
+  #+begin_src emacs-lisp
+  (with-current-buffer boardgame-current-board-buffer
+    (boardgame-board-goto-coord 15 20)
+    (boardgame-create-marker))
+  #+end_src
+
+-----
+
+** 3. Hands & Universal Org Subtree Transfers
+
+*** =boardgame-open-hand= =(&optional world-dir)=
+- *Parameters:*
+  - =WORLD-DIR= (string or =nil=): Optional world directory (defaults to =boardgame-current-world-directory=).
+- *Behavior:* Opens the active hand Org file (=boardgame-active-hand-file=, default ="hand.org"=) in another window so you can inspect, edit, or place items from it.
+- *Example:*
+  #+begin_src emacs-lisp
+  (boardgame-open-hand)
+  #+end_src
+
+*** =boardgame-place-on-board= =(&optional target-board target-x target-y)=
+- *Parameters:*
+  - =TARGET-BOARD= (=boardgame-board= struct or =nil=): Defaults to the active board.
+  - =TARGET-X=, =TARGET-Y= (integers or =nil=): Target coordinates on the board. Defaults to the current cursor position on the active board.
+- *Behavior:*
+  Must be invoked while point is on an Org heading in *any* Org buffer (such as =hand.org=).
+  1. Extracts the current Org heading and its complete subtree.
+  2. Resolves the visual glyph from the =:GLYPH:= property, or the first printable character of the heading title (with fallback =*=).
+  3. Writes a standalone object Org file in =objects/<id>.org=.
+  4. Places the object on =TARGET-BOARD= at =(TARGET-X, TARGET-Y)= and refreshes the board display.
+  5. Cuts the transferred subtree from the source Org buffer.
+- *Example:*
+  #+begin_src emacs-lisp
+  ;; Programmatically place the "Card: Magic Arrow" heading from hand.org onto the board at (12, 12):
+  (with-current-buffer (find-file-noselect
+                        (expand-file-name "hand.org" boardgame-current-world-directory))
+    (goto-char (point-min))
+    (re-search-forward "Magic Arrow")
+    (org-back-to-heading)
+    (boardgame-place-on-board nil 12 12))
+  #+end_src
+
+*** =boardgame-hand-take= =(&optional target-x target-y)=
+- *Parameters:*
+  - =TARGET-X=, =TARGET-Y= (integers or =nil=): Coordinates on the active board to take from. Defaults to the current board cursor position.
+- *Behavior:*
+  - *If the top object is an ordinary object:* Transfers its complete Org content as a subtree into =hand.org=, removes it from the board, and deletes its standalone file in =objects/=.
+  - *If the top object is a Permanent Container:* Draws the *top item* from the container into =hand.org= while leaving the container itself on the board.
+  - *If the top object is a Consolidated Stack:* Expands/extracts the *top item* from the stack into =hand.org=.
+- *Example:*
+  #+begin_src emacs-lisp
+  ;; Take the object at (12, 12) on the active board into the player's hand:
+  (boardgame-hand-take 12 12)
+  #+end_src
+
+-----
+
+** 4. Consolidated Stacks (=boardgame-stack.el=)
+
+A Stack merges multiple objects into a single Org document (displayed with glyph =$= on a white background with black text) and deletes the original standalone object files from disk.
+
+*** =boardgame-stack-create-at-point= =()=
+- *Parameters:* None (interactive command, bound to =F7= and =C-c k=).
+- *Behavior:* Consolidates all objects currently occupying the cursor cell (requires at least 2 objects) into a single stack file in =stacks/=, prompts for a stack name, deletes the individual standalone files, and replaces the cell's objects with the single stack object.
+
+*** =boardgame-stack-consolidate= =(objects stack-file-or-id &optional stack-name board)=
+- *Parameters:*
+  - =OBJECTS= (list of =boardgame-object= structs): The objects to consolidate.
+  - =STACK-FILE-OR-ID= (string): Stack ID (written to =stacks/<id>.org=) or relative/absolute =.org= path.
+  - =STACK-NAME= (string or =nil=): Display title for the stack heading.
+  - =BOARD= (=boardgame-board= struct or =nil=): Board from which to replace individual objects with the consolidated stack object.
+- *Returns:* The newly created stack =boardgame-object= struct (with glyph ="$"=).
+- *Example:*
+  #+begin_src emacs-lisp
+  ;; Consolidate all objects at (25, 10) into stacks/treasure-pile.org:
+  (let* ((board (buffer-local-value 'boardgame-board--data boardgame-current-board-buffer))
+         (objs (boardgame-board-get-objects board 25 10)))
+    (boardgame-stack-consolidate objs "treasure-pile" "Treasure Pile" board))
+  #+end_src
+
+*** =boardgame-stack-expand= =(stack-object &optional board)=
+- *Parameters:*
+  - =STACK-OBJECT= (=boardgame-object= struct): The stack object to unpack.
+  - =BOARD= (=boardgame-board= struct or =nil=): Target board.
+- *Behavior:* Reconstructs the individual standalone object Org files in =objects/=, deletes the consolidated stack file from =stacks/=, removes the stack from =BOARD=, and places all restored objects back onto =BOARD=.
+- *Returns:* List of restored =boardgame-object= structs.
+- *Example:*
+  #+begin_src emacs-lisp
+  (let* ((board (buffer-local-value 'boardgame-board--data boardgame-current-board-buffer))
+         (stack-obj (boardgame-board-get-top-object board 25 10)))
+    (boardgame-stack-expand stack-obj board))
+  #+end_src
+
+-----
+
+** 5. Permanent Containers (=boardgame-container.el=)
+
+Unlike a stack, a Permanent Container (such as a deck of cards or a bag of tokens) organizes references to objects in =containers/<id>.org= *without* merging or deleting their standalone Org files in =objects/=. An empty container persists until explicitly deleted.
+
+*** =boardgame-container-create= =(id name &optional glyph world-dir)=
+- *Parameters:*
+  - =ID= (string): Identifier used for =containers/<id>.org=.
+  - =NAME= (string): Human-readable container name.
+  - =GLYPH= (string or =nil=): 1-character display glyph (defaults to ="C"=).
+  - =WORLD-DIR= (string or =nil=): Target world directory.
+- *Returns:* Relative path string ="containers/<id>.org"=.
+- *Example:*
+  #+begin_src emacs-lisp
+  (boardgame-container-create "deck-loot" "Loot Deck" "L")
+  #+end_src
+
+*** =boardgame-container-add-object= =(container-obj object &optional world-dir)=
+- *Parameters:*
+  - =CONTAINER-OBJ= (=boardgame-object= struct): The container board object.
+  - =OBJECT= (=boardgame-object= struct or file path string): The standalone object to add into the container.
+  - =WORLD-DIR= (string or =nil=): Optional world directory.
+- *Behavior:* Appends a reference entry for =OBJECT= into the container's Org file while preserving =OBJECT='s standalone Org file on disk.
+- *Example:*
+  #+begin_src emacs-lisp
+  (boardgame-container-add-object my-deck-obj "objects/card-dragon.org")
+  #+end_src
+
+*** =boardgame-container-draw-top= / =draw-bottom= / =draw-random= =(container-obj &optional world-dir)=
+- *Parameters:*
+  - =CONTAINER-OBJ= (=boardgame-object= struct): The container object to draw from.
+  - =WORLD-DIR= (string or =nil=): Optional world directory.
+- *Returns:* A property list =(:name NAME :file FILE :glyph GLYPH :type TYPE :content CONTENT)= representing the drawn item, or =nil= if the container is empty.
+- *Example:*
+  #+begin_src emacs-lisp
+  (boardgame-container-draw-top my-deck-obj)
+  (boardgame-container-draw-bottom my-deck-obj)
+  (boardgame-container-draw-random my-deck-obj)
+  #+end_src
+
+*** =boardgame-container-draw-to-board= =(container-obj target-x target-y &optional draw-type board world-dir)=
+- *Parameters:*
+  - =CONTAINER-OBJ= (=boardgame-object= struct): Source container object.
+  - =TARGET-X=, =TARGET-Y= (integers): Board coordinates where the drawn object will be placed.
+  - =DRAW-TYPE= (keyword): One of =:top= (default), =:bottom=, or =:random=.
+  - =BOARD= (=boardgame-board= struct or =nil=): Target board.
+  - =WORLD-DIR= (string or =nil=): Optional world directory.
+- *Returns:* The newly placed =boardgame-object= struct on the board.
+- *Example:*
+  #+begin_src emacs-lisp
+  ;; Draw a random card from my-deck-obj and place it at (14, 10):
+  (boardgame-container-draw-to-board my-deck-obj 14 10 :random)
+  #+end_src
+
+*** =boardgame-container-shuffle= =(container-obj &optional world-dir)=
+- *Parameters:*
+  - =CONTAINER-OBJ= (=boardgame-object= struct): Container whose contents will be shuffled in place using Fisher-Yates randomization.
+- *Example:*
+  #+begin_src emacs-lisp
+  (boardgame-container-shuffle my-deck-obj)
+  #+end_src
+
+*** =boardgame-container-layout-contents= =(container-obj board &optional world-dir)=
+- *Parameters:*
+  - =CONTAINER-OBJ= (=boardgame-object= struct): Container placed on =BOARD=.
+  - =BOARD= (=boardgame-board= struct): Active board struct.
+  - =WORLD-DIR= (string or =nil=): Optional world directory.
+- *Behavior:* Places each item from =CONTAINER-OBJ= onto previously empty cells surrounding the container's position without overwriting existing board objects. Any items that cannot fit remain inside the container.
+- *Returns:* Number of items placed on the board.
+
+-----
+
+** 6. Object Inspection & Org-Babel Code Execution
+
+*** =boardgame-execute-object-block= =(&optional object block-name)=
+- *Parameters:*
+  - =OBJECT= (=boardgame-object= struct or =nil=): Object whose Org file contains the source block. Defaults to the topmost object under the board cursor.
+  - =BLOCK-NAME= (string or =nil=): Optional =#+NAME:= of a specific source block. If omitted, executes the first =emacs-lisp= source block in the object's Org file.
+- *Returns:* The evaluation result of the executed Org-Babel source block.
+- *Example:*
+  #+begin_src emacs-lisp
+  ;; Execute the code block of the object currently under the cursor:
+  (boardgame-execute-object-block)
+  #+end_src
+
+*** =boardgame-execute-board-block= =(&optional block-name)=
+- *Parameters:*
+  - =BLOCK-NAME= (string or =nil=): Optional =#+NAME:= of a source block inside the active board's Org file.
+- *Returns:* The evaluation result of the board's Org-Babel source block.
+
+*** =boardgame-describe-object= =()= & =boardgame-open-object= =()=
+- =boardgame-describe-object= (=F1= or =C-c ?=): Prints the coordinates, underlying felt character, and the name, glyph, and type of every object stacked at the cursor cell.
+- =boardgame-open-object= (=F2= or =C-c o=): Opens the standalone Org file of the top object under the cursor in another window.
+
+-----
+
+** 7. Drawing Mode & Text Overwrite Mode (=boardgame-draw.el=)
+
+- =boardgame-draw-toggle= (=F8= / =C-c d=): Toggles Drawing Mode on/off.
+- =boardgame-text-mode-toggle= (=F8= inside Drawing Mode): Toggles Text Overwrite Mode where typing printable ASCII characters overwrites the felt cell under the cursor and advances point one column right without inserting line breaks or shifting cells.
+- =boardgame-draw-set-glyph= =(&optional glyph)=: Sets the active brush character (prompts if =GLYPH= is omitted) and pushes it to recent glyph history.
+- =boardgame-draw-set-foreground= =(&optional fg)= / =boardgame-draw-set-background= =(&optional bg)=: Sets brush foreground/background color strings.
+- =boardgame-draw-pipette= =()=: Samples the felt character at the cursor into the active brush.
+- =boardgame-draw-paint-cell= =(x y &optional glyph fg bg)=: Paints a single felt cell at =(X, Y)= (leaves cells containing objects untouched).
+- =boardgame-draw-stroke-move= =(from-x from-y to-x to-y)=: Draws a continuous Bresenham line between two coordinates on the felt layer.
+- =boardgame-draw-fill-region= =(&optional glyph fg bg)=: Fills the active Emacs region rectangle with the current brush character.
+
+-----
+
+** 8. Programmatic In-Memory Data & Logging API
+
+*** Creating & Manipulating Objects on a Board
+#+begin_src emacs-lisp
+(let* ((board (buffer-local-value 'boardgame-board--data boardgame-current-board-buffer))
+       (dragon (boardgame-object-create
+                :name "Ancient Gold Dragon"
+                :x 10 :y 15
+                :glyph "D"
+                :file "objects/card-dragon.org"
+                :type "card"
+                :fg "yellow"
+                :bg "black")))
+  ;; Add object to the top of cell (10, 15):
+  (boardgame-board-add-object board dragon)
+  ;; Move object to (12, 15):
+  (boardgame-board-move-object board dragon 12 15)
+  ;; Refresh the board buffer to render changes and stack count indicators (1-9, +):
+  (boardgame-board-refresh boardgame-current-board-buffer))
+#+end_src
+
+*** Writing to the Shared World Log
+#+begin_src emacs-lisp
+;; Append a timestamped Org entry to the active world's shared log buffer (<world>-log.org):
+(boardgame-log-append "Player cast Fireball at (12, 15)"
+                      boardgame-current-world-directory
+                      "Combat")
+#+end_src
+
+-----
+
+* Running the Automated Test Suite (ERT)
+
+All implemented stages are verified via the ERT regression test suite in =test-boardgame-org.el=.
+
+** From inside Emacs:
+#+begin_src emacs-lisp
+(load-file "~/Dev/emacs/boardgame-org/test-boardgame-org.el")
+(ert "^boardgame-test")
+#+end_src
+
+** From the command line (Batch Mode):
+#+begin_src sh
+emacs -Q --batch -l ert -l test-boardgame-org.el -f ert-run-tests-batch-and-exit
+#+end_src
