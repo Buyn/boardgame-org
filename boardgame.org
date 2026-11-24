@@ -26,7 +26,8 @@ mv /home/buyn/Downloads/boardgame-implementation-plan.md /home/buyn/Dev/emacs/bo
 (find-file-other-frame "~/Dev/emacs/boardgame-org/boardgame.el")
 (find-file-other-frame "~/Dev/emacs/boardgame-org/boardgame-serialize.el")
 (find-file-other-frame "~/Dev/emacs/boardgame-org/boardgame-data.el")
-
+** docs
+(find-file-other-frame "~/Dev/emacs/boardgame-org/readme.org")
 ** tests boardgame-org
 (find-file-other-frame "~/Dev/emacs/boardgame-org/test-boardgame-org.el")
 ** arhiv
@@ -63,129 +64,7 @@ mv /home/buyn/Downloads/boardgame-implementation-plan.md /home/buyn/Dev/emacs/bo
 ** 
 * Kanban
 ** DONE done
-*** DONE Stage 6
-@boardgame-org.md @boardgame-org-interface.md @boardgame-implementation-plan.md
-implement the stage
-### Stage 6: Hands, Stacks, and Permanent Containers
-described in the file @boardgame-implementation-plan.md
-*** DONE Stage 6 Implementation Summary
-
-  Stage 6 Implementation Summary: Hands, Stacks, and Permanent Containers                
-                                                                                         
-  In accordance with boardgame-org.md, boardgame-org-interface.md, and                   
-  boardgame-implementation-plan.md, Stage 6 has been implemented and verified.           
-  
-  1. Implemented Modules
-                                                                                         
-  • boardgame-stack.el:                                                                  
-      • Explicit multi-object consolidation into a single Org document (boardgame-stack- 
-      consolidate, boardgame-stack-consolidate-files).
-      • Represents stacks on the board with glyph $ (black text on white background).    
-      • Standalone Org files of incorporated objects are safely deleted from disk upon   
-      consolidation.
-      • Expansion of consolidated stacks back into independent standalone object files   
-      (boardgame-stack-expand).
-      • Interactive point consolidation command (boardgame-stack-create-at-point).       
-  • boardgame-container.el:
-      • Manages permanent container Org documents (boardgame-container-create).          
-      • Organizes references to independent objects without merging or deleting          
-      standalone Org files (boardgame-container-add-object).
-      • Implements drawing operations: top (boardgame-container-draw-top), bottom        
-      (boardgame-container-draw-bottom), and random (boardgame-container-draw-random),   
-      and drawing directly onto the board (boardgame-container-draw-to-board).           
-      • Supports Fisher-Yates shuffling of references (boardgame-container-shuffle) and  
-      laying out contents onto surrounding free cells (boardgame-container-layout-       
-      contents).
-      • Container persistence invariant: containers persist even when empty.             
-  • boardgame-hand.el:
-      • Hand Org file resolution and inspection (boardgame-hand-get-file, boardgame-open-
-      hand).
-      • Universal heading placement command (boardgame-place-on-board): extracts Org     
-      heading subtree, creates standalone object file in objects/, derives glyph (first  
-      heading char or fallback *), adds object to active board, and removes the subtree  
-      from source.
-      • Take command (boardgame-hand-take): transfers board objects into active hand;    
-      specialized to take the top contained item when the cursor is over a container or  
-      stack without taking or destroying the container/stack itself.
-  • boardgame.el:
-      • Integrated loading of internal modules boardgame-stack, boardgame-container, and 
-      boardgame-hand via boardgame--load-module while preserving the single public       
-      feature (provide 'boardgame).
-  
-  
-  2. Verification & Automated Test Suite
-  
-  The ERT test suite in test-boardgame-org.el passes with 0 failures (23/23 tests        
-  passing):
-  
-  • Unit Test 6.1 (boardgame-test-glyph-extraction-fallback): Verified fallback rules and
-  first-character glyph resolution.
-  • Unit Test 6.2 (boardgame-test-stack-file-consolidation): Verified consolidation of 
-  three standalone files into a single stack Org document with verified deletion of the 
-  original standalone files.
-  • Integration Test 6.3 (boardgame-test-container-draw-file-preservation): Verified 
-  adding objects to a container and drawing to the board while confirming all standalone
-  files remain intact on disk.
-  • Integration Test (boardgame-test-hand-place-and-take): Verified end-to-end place-on- 
-  board and take operations between hand Org files and board buffers. 
-*** DONE Stage 7
-@boardgame-org.md @boardgame-org-interface.md @boardgame-implementation-plan.md
-implement the stage
-### Stage 7: Navigation Markers, Code Execution, and Interactive Commands
-described in the file @boardgame-implementation-plan.md
-*** DONE Stage 7 Implementation Summary
-  Stage 7 Implementation Summary: Navigation Markers, Code Execution, and Interactive    
-  Commands                                                                               
-                                                                                         
-  Stage 7 has been implemented and verified in strict accordance with boardgame-org.md,  
-  boardgame-org-interface.md, and boardgame-implementation-plan.md.                      
-                                                                                         
-  1. Implemented Modules                                                                 
-                                                                                         
-  • boardgame-marker.el:                                                                 
-      • Universal Board Navigation (boardgame-navigate-to-board-coord / boardgame-board- 
-      navigate):                                                                         
-      Moves point to (x, y) on any board filename (e.g. "board-b.org") within the active 
-      world. Validates board existence, dimensions, and buffer visibility.               
-      • Marker Generator (boardgame-marker-generate-heading, boardgame-marker-generate-  
-      doc):                                                                              
-      Generates marker root headings according to §11.4.1 format Marker (board filename) 
-      (x, y), sets display glyph ^ and foreground white, stores DESTINATION_BOARD,       
-      evaluate nil).                                                                     
-      boardgame-execute-board-block executes embedded source blocks associated with the
-      board document.
-      • Object Inspection & Management:
-      boardgame-describe-object describes all objects and the underlying felt at the     
-      cursor coordinate.
-      boardgame-open-object opens the object's Org document in another window.
-      • Keybindings & Keymap:          
-      Defines boardgame-commands-map binding function keys F1–F10 and C-c key sequences  
-      (C-c m, C-c e, C-c g, C-c o, C-c t, C-c h, C-c s, C-c k, C-c ?). Automatically     
-      inherits into boardgame-board-mode-map.
-  • boardgame.el:                                                                        
-      • Added internal loading of boardgame-marker and boardgame-commands via boardgame--
-      load-module, maintaining single public feature invariant (provide 'boardgame).
-                                                                                         
-      
-  2. Verification & Automated Test Suite                                                 
-      
-  The ERT test suite in test-boardgame-org.el passes with 0 failures (26/26 tests        
-  passing):                                                                              
-      
-  • Unit Test 7.1 (boardgame-test-marker-heading-generation): Verified generation of
-  heading Marker (board-b.org) (15, 20), property drawer fields (DESTINATION_BOARD,      
-  DESTINATION_X, DESTINATION_Y, GLYPH: ^, FG: white), and the parameterizing Babel source
-  block.
-  • Integration Test 7.2 (boardgame-test-cross-board-marker-jump): Verified creating a
-  marker on board.org targeting board-b.org at (10, 5) and executing its Babel block to
-  switch buffers and position point at (10, 5).
-  • Integration Test (boardgame-test-commands-and-code-execution): Verified interactive  
-  marker creation and object inspection commands.
-
-
-** urgent 
-** TODO in progress
-*** make a readme.org file
+*** DONE make a readme.org file
 with the description of the complete instructions of the user.
 with a list of default keys.
 with start-up instructions.
@@ -199,7 +78,7 @@ all that the user should know at the moment
 вообще всё что должен знать пользовательна данный момент
 
 сделай перевод тексат на английский.
-*** What is included in readme.org:
+*** DONE What is included in readme.org:
 
   I have created readme.org with the complete user documentation for the current         
   implementation of boardgame.org.
@@ -245,6 +124,8 @@ all that the user should know at the moment
       boardgame-board-add-object, boardgame-log-append, and ERT test execution           
       instructions. 
 
+** urgent 
+** TODO in progress
 ** dezine
 *** ert
 #+begin_src emacs-lisp 
@@ -316,7 +197,13 @@ F boardgame-test-stack-consolidation-and-glyph
 #+end_src
 
 ** todo
+*** Руки и орги открываются во фреме внутри борд гейма.
+а это должны быть отдельные фремы\окна то, что происходит при команде (find-file-other-frame "орг")
+тоесть использоват стандартный механизм открытия файлов в отдельном "фрейме"(окне в теминах оконого менеджера а не имакса).
+
+
 *** Stage 8
+**** 
 @boardgame-org.md @boardgame-org-interface.md @boardgame-implementation-plan.md
 implement the stage
 ### Stage 8: Version Control (Git), Error Recovery, and End-to-End Integration
@@ -355,8 +242,13 @@ agy --conversation=1ad1fefa-813f-4a5c-95d7-728ff6a09cb0
 *** src block
 #+begin_src elisp
 (load "~/Dev/emacs/boardgame-org/boardgame.el")
-(boardgame-start "/home/buyn/Dev/emacs/boardgame-org/test-world")
+(boardgame-start "/home/buyn/Dev/emacs/boardgame-world/ferst-world")
+(boardgame-open-board "/home/buyn/Dev/emacs/boardgame-world/ferst-world/board.org")
 #+end_src
+;; 1. Initialize and activate the world directory in a dedicated game frame:
+(boardgame-start "~/Dev/emacs/boardgame-org/test-world")
+
+;; 2. Open the main board file in the active game frame:
 
 #+begin_src elisp
 (load "~/Dev/emacs/boardgame-org/boardgame.el")

@@ -20,7 +20,6 @@ Key architectural principles:
 -----
 
 * Start-Up Instructions & World Setup
-
 ** 1. Quick Start with the Included Test World
 
 The fastest way to launch and explore =boardgame.org= with pre-populated boards (=board.org=, =board-b.org=), objects, stacks, a spell deck container, and a player hand is =boardgame-open-test-world=:
@@ -92,7 +91,6 @@ If you pass a non-existent directory path to =boardgame-world-initialize= or =bo
 -----
 
 * Default Keybindings Reference
-
 ** 1. Board Mode Keymap (=boardgame-board-mode-map=)
 
 These keys are active whenever a board buffer is focused in =boardgame-board-mode=. Standard Emacs cursor motion (=C-f=, =C-b=, =C-n=, =C-p=, arrow keys) and Evil normal-mode keys (=h=, =j=, =k=, =l=) work naturally without line wrapping.
